@@ -7,6 +7,7 @@ namespace canary {
 class Gain {
 public:
     void setLinear(float gain);
+    void setDecibels(float decibels);
     float linear() const;
 
     float processSample(float sample) const;

@@ -11,6 +11,8 @@ if(MSVC)
 endif()
 
 add_subdirectory(dsp)
+add_subdirectory(engine)
+add_subdirectory(app)
 
 enable_testing()
 add_subdirectory(tests)

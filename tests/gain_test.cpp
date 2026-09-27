@@ -32,6 +32,20 @@ TEST_CASE("gain scales every sample in an interleaved buffer")
     CHECK(buffer[5] == doctest::Approx(-1.2f));
 }
 
+TEST_CASE("decibels convert to linear gain")
+{
+    canary::Gain gain;
+
+    gain.setDecibels(0.0f);
+    CHECK(gain.linear() == doctest::Approx(1.0f));
+
+    gain.setDecibels(-20.0f);
+    CHECK(gain.linear() == doctest::Approx(0.1f));
+
+    gain.setDecibels(6.0206f);
+    CHECK(gain.linear() == doctest::Approx(2.0f).epsilon(0.001));
+}
+
 TEST_CASE("zero gain produces silence")
 {
     canary::Gain gain;

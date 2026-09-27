@@ -1,10 +1,17 @@
 #include "canary/gain.h"
 
+#include <cmath>
+
 namespace canary {
 
 void Gain::setLinear(float gain)
 {
     gain_ = gain;
+}
+
+void Gain::setDecibels(float decibels)
+{
+    gain_ = std::pow(10.0f, decibels / 20.0f);
 }
 
 float Gain::linear() const
