@@ -1,4 +1,4 @@
-#include <dr_wav.h>
+﻿#include <dr_wav.h>
 #include <spdlog/spdlog.h>
 
 #include <cstdio>
@@ -16,15 +16,15 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    const char* path = argv[1];
+    const char* wavPath = argv[1];
     float gainDecibels = argc >= 3 ? std::strtof(argv[2], nullptr) : 0.0f;
 
     unsigned int channels = 0;
     unsigned int sampleRate = 0;
     drwav_uint64 frames = 0;
-    float* data = drwav_open_file_and_read_pcm_frames_f32(path, &channels, &sampleRate, &frames, nullptr);
+    float* data = drwav_open_file_and_read_pcm_frames_f32(wavPath, &channels, &sampleRate, &frames, nullptr);
     if (!data || frames == 0) {
-        spdlog::error("could not read {}", path);
+        spdlog::error("could not read {}", wavPath);
         drwav_free(data, nullptr);
         return 1;
     }
@@ -42,7 +42,7 @@ int main(int argc, char** argv)
     }
 
     spdlog::info("playing {} ({} Hz, {} ch) at {:+.1f} dB, press Enter to stop",
-                 path, sampleRate, channels, gainDecibels);
+                 wavPath, sampleRate, channels, gainDecibels);
     std::getchar();
 
     output.stop();
