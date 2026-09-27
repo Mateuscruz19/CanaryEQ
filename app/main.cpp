@@ -1,4 +1,5 @@
 #include <dr_wav.h>
+#include <spdlog/spdlog.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -11,7 +12,7 @@
 int main(int argc, char** argv)
 {
     if (argc < 2) {
-        std::fprintf(stderr, "usage: canary <file.wav> [gain_db]\n");
+        spdlog::error("usage: canary <file.wav> [gain_db]");
         return 1;
     }
 
@@ -23,7 +24,7 @@ int main(int argc, char** argv)
     drwav_uint64 frames = 0;
     float* data = drwav_open_file_and_read_pcm_frames_f32(path, &channels, &sampleRate, &frames, nullptr);
     if (!data || frames == 0) {
-        std::fprintf(stderr, "could not read %s\n", path);
+        spdlog::error("could not read {}", path);
         drwav_free(data, nullptr);
         return 1;
     }
@@ -36,12 +37,12 @@ int main(int argc, char** argv)
 
     canary::AudioOutput output;
     if (!output.start(sampleRate, channels, player)) {
-        std::fprintf(stderr, "audio error: %s\n", output.error().c_str());
+        spdlog::error("audio error: {}", output.error());
         return 1;
     }
 
-    std::printf("playing %s (%u Hz, %u ch) at %+.1f dB, press Enter to stop\n",
-                path, sampleRate, channels, gainDecibels);
+    spdlog::info("playing {} ({} Hz, {} ch) at {:+.1f} dB, press Enter to stop",
+                 path, sampleRate, channels, gainDecibels);
     std::getchar();
 
     output.stop();

@@ -10,6 +10,16 @@ if(MSVC)
     add_compile_options(/W4 /permissive- /utf-8)
 endif()
 
+include(FetchContent)
+
+FetchContent_Declare(spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG v1.17.0
+    GIT_SHALLOW TRUE
+    SYSTEM
+)
+FetchContent_MakeAvailable(spdlog)
+
 add_subdirectory(dsp)
 add_subdirectory(engine)
 add_subdirectory(app)
