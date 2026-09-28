@@ -5,17 +5,22 @@
 
 namespace canary {
 
-LoopingPlayer::LoopingPlayer(std::vector<float> samples)
+static_assert(std::atomic<float>::is_always_lock_free);
+
+LoopingPlayer::LoopingPlayer(std::vector<float> samples, float initialDecibels)
     : samples_(std::move(samples))
+    , gainDecibels_(initialDecibels)
 {
+    gain_.setDecibels(initialDecibels);
+    gain_.snapToTarget();
 }
 
 void LoopingPlayer::setGainDecibels(float decibels)
 {
-    gain_.setDecibels(decibels);
+    gainDecibels_.store(decibels, std::memory_order_relaxed);
 }
 
-void LoopingPlayer::render(std::span<float> buffer, std::uint32_t)
+void LoopingPlayer::render(std::span<float> buffer, std::uint32_t channels)
 {
     std::size_t written = 0;
     while (written < buffer.size()) {
@@ -28,7 +33,8 @@ void LoopingPlayer::render(std::span<float> buffer, std::uint32_t)
         }
     }
 
-    gain_.process(buffer);
+    gain_.setDecibels(gainDecibels_.load(std::memory_order_relaxed));
+    gain_.process(buffer, channels);
 }
 
 }

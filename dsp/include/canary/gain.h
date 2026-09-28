@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <span>
 
 namespace canary {
@@ -8,13 +9,14 @@ class Gain {
 public:
     void setLinear(float gain);
     void setDecibels(float decibels);
+    void snapToTarget();
     float linear() const;
 
-    float processSample(float sample) const;
-    void process(std::span<float> samples) const;
+    void process(std::span<float> samples, std::size_t channels);
 
 private:
-    float gain_ = 1.0f;
+    float target_ = 1.0f;
+    float current_ = 1.0f;
 };
 
 }

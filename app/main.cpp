@@ -1,12 +1,13 @@
-﻿#include <dr_wav.h>
+#include <dr_wav.h>
 #include <spdlog/spdlog.h>
 
-#include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <utility>
 #include <vector>
 
 #include "canary/audio_output.h"
+#include "control_window.h"
 #include "looping_player.h"
 
 int main(int argc, char** argv)
@@ -32,8 +33,7 @@ int main(int argc, char** argv)
     std::vector<float> samples(data, data + frames * channels);
     drwav_free(data, nullptr);
 
-    canary::LoopingPlayer player(std::move(samples));
-    player.setGainDecibels(gainDecibels);
+    canary::LoopingPlayer player(std::move(samples), gainDecibels);
 
     canary::AudioOutput output;
     if (!output.start(sampleRate, channels, player)) {
@@ -41,9 +41,16 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    spdlog::info("playing {} ({} Hz, {} ch) at {:+.1f} dB, press Enter to stop",
-                 wavPath, sampleRate, channels, gainDecibels);
-    std::getchar();
+    spdlog::info("playing {} ({} Hz, {} ch), close the window to stop", wavPath, sampleRate, channels);
+
+    try {
+        canary::runControlWindow(gainDecibels, [&player](float decibels) {
+            player.setGainDecibels(decibels);
+        });
+    }
+    catch (const std::exception& e) {
+        spdlog::error("window error: {}", e.what());
+    }
 
     output.stop();
     return 0;
