@@ -44,8 +44,10 @@ int main(int argc, char** argv)
     spdlog::info("playing {} ({} Hz, {} ch), close the window to stop", wavPath, sampleRate, channels);
 
     try {
-        canary::runControlWindow(gainDecibels, [&player](float decibels) {
-            player.setGainDecibels(decibels);
+        canary::runControlWindow({
+            .initialGainDecibels = gainDecibels,
+            .onGainChanged = [&player](float decibels) { player.setGainDecibels(decibels); },
+            .onBalanceChanged = [&player](float decibels) { player.setBalanceDecibels(decibels); },
         });
     }
     catch (const std::exception& e) {

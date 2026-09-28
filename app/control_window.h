@@ -4,6 +4,12 @@
 
 namespace canary {
 
-void runControlWindow(float initialDecibels, const std::function<void(float)>& onGainChanged);
+struct ControlWindowOptions {
+    float initialGainDecibels = 0.0f;
+    std::function<void(float)> onGainChanged;
+    std::function<void(float)> onBalanceChanged;
+};
+
+void runControlWindow(const ControlWindowOptions& options);
 
 }

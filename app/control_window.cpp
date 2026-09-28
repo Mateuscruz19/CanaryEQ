@@ -24,7 +24,6 @@ constexpr const char* kHtml = R"html(<!doctype html>
     --text: #ecedef;
     --muted: #858a94;
     --accent: #f2c14e;
-    --fill: 0%;
   }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; }
@@ -36,18 +35,22 @@ constexpr const char* kHtml = R"html(<!doctype html>
     align-items: center;
     user-select: none;
   }
-  main { width: 100%; padding: 0 32px; }
-  header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 26px; }
+  main { width: 100%; padding: 0 32px; display: grid; gap: 34px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
   h1 { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-  output { font-size: 38px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
-  output small { font-size: 15px; font-weight: 500; color: var(--muted); margin-left: 6px; }
+  output { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  output small { font-size: 14px; font-weight: 500; color: var(--muted); margin-left: 6px; }
   input[type=range] {
+    --from: 0%;
+    --to: 0%;
     width: 100%;
     height: 6px;
     appearance: none;
     border-radius: 3px;
     outline: none;
-    background: linear-gradient(to right, var(--accent) var(--fill), var(--track) var(--fill));
+    background: linear-gradient(to right,
+      var(--track) var(--from), var(--accent) var(--from),
+      var(--accent) var(--to), var(--track) var(--to));
   }
   input[type=range]::-webkit-slider-thumb {
     appearance: none;
@@ -61,68 +64,103 @@ constexpr const char* kHtml = R"html(<!doctype html>
   input[type=range]:active::-webkit-slider-thumb { cursor: grabbing; }
   .scale { position: relative; height: 16px; margin-top: 12px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .scale span { position: absolute; transform: translateX(-50%); }
-  footer { margin-top: 22px; font-size: 11px; color: var(--muted); }
+  footer { font-size: 11px; color: var(--muted); }
 </style>
 </head>
 <body>
 <main>
-  <header>
-    <h1>Volume</h1>
-    <output id="value"></output>
-  </header>
-  <input id="gain" type="range" min="-40" max="6" step="0.5">
-  <div class="scale" id="scale"></div>
-  <footer>Double-click the slider to reset to 0 dB</footer>
+  <section id="gain"></section>
+  <section id="balance"></section>
+  <footer>Double-click a slider to reset it</footer>
 </main>
 <script>
-  const slider = document.getElementById("gain");
-  const value = document.getElementById("value");
-  const scale = document.getElementById("scale");
-  const min = Number(slider.min);
-  const max = Number(slider.max);
-  const percent = v => (v - min) / (max - min) * 100;
+  const signed = v => `${v > 0 ? "+" : ""}${v.toFixed(1)}`;
 
-  for (const tick of [-40, -30, -20, -10, 0, 6]) {
-    const label = document.createElement("span");
-    label.textContent = tick > 0 ? `+${tick}` : `${tick}`;
-    label.style.left = `${percent(tick)}%`;
-    scale.appendChild(label);
-  }
+  const makeSlider = ({ id, title, min, max, step, initial, origin, ticks, label, onChange }) => {
+    const section = document.getElementById(id);
+    section.innerHTML = `
+      <header><h1>${title}</h1><output></output></header>
+      <input type="range" min="${min}" max="${max}" step="${step}">
+      <div class="scale"></div>`;
+    const output = section.querySelector("output");
+    const slider = section.querySelector("input");
+    const scale = section.querySelector(".scale");
+    const percent = v => (v - min) / (max - min) * 100;
 
-  const show = v => {
-    value.innerHTML = `${v > 0 ? "+" : ""}${v.toFixed(1)}<small>dB</small>`;
-    slider.style.setProperty("--fill", `${percent(v)}%`);
+    for (const [value, text] of ticks) {
+      const tick = document.createElement("span");
+      tick.textContent = text;
+      tick.style.left = `${percent(value)}%`;
+      scale.appendChild(tick);
+    }
+
+    const show = v => {
+      output.innerHTML = label(v);
+      slider.style.setProperty("--from", `${Math.min(percent(origin), percent(v))}%`);
+      slider.style.setProperty("--to", `${Math.max(percent(origin), percent(v))}%`);
+    };
+
+    const apply = v => {
+      show(v);
+      onChange(v);
+    };
+
+    slider.value = initial;
+    show(initial);
+    slider.addEventListener("input", () => apply(Number(slider.value)));
+    slider.addEventListener("dblclick", () => {
+      slider.value = origin;
+      apply(origin);
+    });
   };
 
-  const apply = v => {
-    show(v);
-    window.setGain(v);
-  };
+  makeSlider({
+    id: "gain",
+    title: "Volume",
+    min: -40, max: 6, step: 0.5,
+    initial: window.initialGain,
+    origin: -40,
+    ticks: [[-40, "-40"], [-30, "-30"], [-20, "-20"], [-10, "-10"], [0, "0"], [6, "+6"]],
+    label: v => `${signed(v)}<small>dB</small>`,
+    onChange: v => window.setGain(v),
+  });
 
-  slider.value = window.initialGain;
-  show(Number(slider.value));
-  slider.addEventListener("input", () => apply(Number(slider.value)));
-  slider.addEventListener("dblclick", () => {
-    slider.value = 0;
-    apply(0);
+  makeSlider({
+    id: "balance",
+    title: "Balance",
+    min: -12, max: 12, step: 0.5,
+    initial: 0,
+    origin: 0,
+    ticks: [[-12, "L 12"], [-6, "6"], [0, "C"], [6, "6"], [12, "12 R"]],
+    label: v => v === 0 ? "Center" : `${v < 0 ? "L" : "R"} ${Math.abs(v).toFixed(1)}<small>dB</small>`,
+    onChange: v => window.setBalance(v),
   });
 </script>
 </body>
 </html>
 )html";
 
+float parseFirstNumber(const std::string& request)
+{
+    return std::strtof(request.c_str() + 1, nullptr);
 }
 
-void runControlWindow(float initialDecibels, const std::function<void(float)>& onGainChanged)
+}
+
+void runControlWindow(const ControlWindowOptions& options)
 {
     webview::webview window(false, nullptr);
     window.set_title("CanaryEQ");
-    window.set_size(440, 230, WEBVIEW_HINT_FIXED);
-    window.bind("setGain", [&onGainChanged](const std::string& request) -> std::string {
-        onGainChanged(std::strtof(request.c_str() + 1, nullptr));
+    window.set_size(440, 340, WEBVIEW_HINT_FIXED);
+    window.bind("setGain", [&options](const std::string& request) -> std::string {
+        options.onGainChanged(parseFirstNumber(request));
         return "null";
     });
-    window.init(std::format("window.initialGain = {};", initialDecibels));
+    window.bind("setBalance", [&options](const std::string& request) -> std::string {
+        options.onBalanceChanged(parseFirstNumber(request));
+        return "null";
+    });
+    window.init(std::format("window.initialGain = {};", options.initialGainDecibels));
     window.set_html(kHtml);
     window.run();
 }
