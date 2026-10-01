@@ -1,5 +1,6 @@
 ﻿param(
     [string]$EndpointId,
+    [switch]$DisableEffectPack,
     [string]$DllPath = (Join-Path $PSScriptRoot "..\build\release\apo\canary_apo.dll")
 )
 
@@ -15,6 +16,9 @@ $touched = [ordered]@{
     "{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},5" = @{ Kind = "String"; Value = $clsid }
     "{d3993a3f-99c2-4402-b5ec-a92a0367664b},5" = @{ Kind = "MultiString"; Value = @("{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}") }
     "{1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5" = @{ Kind = "DWord"; Value = 0 }
+}
+if ($DisableEffectPack) {
+    $touched["{9e6136e0-57ab-4949-b57a-3627be142855},100"] = @{ Kind = "Delete" }
 }
 
 function Show-Devices {
@@ -107,6 +111,10 @@ $fxWritable = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(($fxKey -repla
 try {
     foreach ($name in $touched.Keys) {
         $value = $touched[$name].Value
+        if ($touched[$name].Kind -eq "Delete") {
+            $fxWritable.DeleteValue($name, $false)
+            continue
+        }
         if ($touched[$name].Kind -eq "MultiString") { $value = [string[]]$value }
         $fxWritable.SetValue($name, $value, [Microsoft.Win32.RegistryValueKind]$touched[$name].Kind)
     }
