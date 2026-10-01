@@ -8,7 +8,10 @@
 #include <wrl/module.h>
 
 #include <algorithm>
+#include <atomic>
+#include <cstdarg>
 #include <cstdint>
+#include <cstdio>
 #include <cwchar>
 #include <span>
 
@@ -25,6 +28,53 @@ using Microsoft::WRL::RuntimeClassFlags;
 constexpr double kLowCutFrequency = 400.0;
 constexpr double kHighCutFrequency = 2500.0;
 constexpr double kCutDecibels = -30.0;
+
+void logLine(const void* instance, const char* format, ...)
+{
+    char message[512];
+    va_list arguments;
+    va_start(arguments, format);
+    std::vsnprintf(message, sizeof(message), format, arguments);
+    va_end(arguments);
+
+    SYSTEMTIME now;
+    GetLocalTime(&now);
+    char line[640];
+    int length = std::snprintf(line, sizeof(line), "%02d:%02d:%02d.%03d pid=%lu apo=%p %s\r\n", now.wHour, now.wMinute,
+                               now.wSecond, now.wMilliseconds, GetCurrentProcessId(), instance, message);
+
+    wchar_t path[MAX_PATH];
+    if (ExpandEnvironmentStringsW(L"%ProgramData%\\CanaryEQ\\apo-log.txt", path, MAX_PATH) == 0) {
+        return;
+    }
+    HANDLE file = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    DWORD written = 0;
+    WriteFile(file, line, static_cast<DWORD>(std::max(length, 0)), &written, nullptr);
+    CloseHandle(file);
+}
+
+const char* describe(IAudioMediaType* type, char* buffer, std::size_t size)
+{
+    UNCOMPRESSEDAUDIOFORMAT format{};
+    if (!type) {
+        std::snprintf(buffer, size, "none");
+    }
+    else if (FAILED(type->GetUncompressedAudioFormat(&format))) {
+        std::snprintf(buffer, size, "compressed/unknown");
+    }
+    else {
+        const char* kind = format.guidFormatType == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT ? "float"
+                         : format.guidFormatType == KSDATAFORMAT_SUBTYPE_PCM        ? "pcm"
+                                                                                     : "other";
+        std::snprintf(buffer, size, "%s %luch %.0fHz %lubytes", kind, format.dwSamplesPerFrame,
+                      format.fFramesPerSecond, format.dwBytesPerSampleContainer);
+    }
+    return buffer;
+}
 
 bool readFloatFormat(IAudioMediaType* type, UNCOMPRESSEDAUDIOFORMAT& format)
 {
@@ -70,6 +120,16 @@ class __declspec(uuid("B22EF1FC-57E7-4E77-AC91-1D232BA20CF2")) CanaryApo final
     : public RuntimeClass<RuntimeClassFlags<ClassicCom>, IAudioProcessingObject, IAudioProcessingObjectRT,
                           IAudioProcessingObjectConfiguration, IAudioSystemEffects> {
 public:
+    CanaryApo()
+    {
+        logLine(this, "created");
+    }
+
+    ~CanaryApo()
+    {
+        logLine(this, "destroyed");
+    }
+
     STDMETHODIMP Reset() override
     {
         lowCut_.reset();
@@ -114,21 +174,34 @@ public:
         return S_OK;
     }
 
-    STDMETHODIMP Initialize(UINT32, BYTE*) override
+    STDMETHODIMP Initialize(UINT32 size, BYTE*) override
     {
+        logLine(this, "Initialize size=%u", size);
         return S_OK;
     }
 
     STDMETHODIMP IsInputFormatSupported(IAudioMediaType* outputFormat, IAudioMediaType* requestedInputFormat,
                                         IAudioMediaType** supportedInputFormat) override
     {
-        return negotiate(outputFormat, requestedInputFormat, supportedInputFormat);
+        HRESULT result = negotiate(outputFormat, requestedInputFormat, supportedInputFormat);
+        char opposite[96];
+        char requested[96];
+        logLine(this, "IsInputFormatSupported opposite=[%s] requested=[%s] -> 0x%08lX",
+                describe(outputFormat, opposite, sizeof(opposite)), describe(requestedInputFormat, requested, sizeof(requested)),
+                static_cast<unsigned long>(result));
+        return result;
     }
 
     STDMETHODIMP IsOutputFormatSupported(IAudioMediaType* inputFormat, IAudioMediaType* requestedOutputFormat,
                                          IAudioMediaType** supportedOutputFormat) override
     {
-        return negotiate(inputFormat, requestedOutputFormat, supportedOutputFormat);
+        HRESULT result = negotiate(inputFormat, requestedOutputFormat, supportedOutputFormat);
+        char opposite[96];
+        char requested[96];
+        logLine(this, "IsOutputFormatSupported opposite=[%s] requested=[%s] -> 0x%08lX",
+                describe(inputFormat, opposite, sizeof(opposite)), describe(requestedOutputFormat, requested, sizeof(requested)),
+                static_cast<unsigned long>(result));
+        return result;
     }
 
     STDMETHODIMP GetInputChannelCount(UINT32* count) override
@@ -144,12 +217,24 @@ public:
                                 APO_CONNECTION_DESCRIPTOR** outputs) override
     {
         if (inputCount < 1 || outputCount < 1 || !inputs || !outputs || !inputs[0]) {
+            logLine(this, "LockForProcess invalid connections in=%u out=%u", inputCount, outputCount);
             return E_INVALIDARG;
         }
+        char inputText[96];
+        char outputText[96];
+        logLine(this, "LockForProcess in=[%s] out=[%s] maxFrames=%u sameBuffer=%d",
+                describe(inputs[0]->pFormat, inputText, sizeof(inputText)),
+                describe(outputs[0] ? outputs[0]->pFormat : nullptr, outputText, sizeof(outputText)),
+                inputs[0]->u32MaxFrameCount, outputs[0] && outputs[0]->pBuffer == inputs[0]->pBuffer);
         UNCOMPRESSEDAUDIOFORMAT format{};
         if (!readFloatFormat(inputs[0]->pFormat, format)) {
+            logLine(this, "LockForProcess rejected: not 32-bit float");
             return APOERR_FORMAT_NOT_SUPPORTED;
         }
+        processCalls_ = 0;
+        validBuffers_ = 0;
+        silentBuffers_ = 0;
+        processedFrames_ = 0;
 
         channels_ = format.dwSamplesPerFrame;
         double sampleRate = format.fFramesPerSecond;
@@ -163,6 +248,8 @@ public:
     STDMETHODIMP UnlockForProcess() override
     {
         locked_ = false;
+        logLine(this, "UnlockForProcess calls=%llu valid=%llu silent=%llu frames=%llu", processCalls_.load(),
+                validBuffers_.load(), silentBuffers_.load(), processedFrames_.load());
         return S_OK;
     }
 
@@ -175,6 +262,14 @@ public:
         APO_CONNECTION_PROPERTY* input = inputs[0];
         APO_CONNECTION_PROPERTY* output = outputs[0];
         UINT32 frames = input->u32ValidFrameCount;
+        processCalls_.fetch_add(1, std::memory_order_relaxed);
+        if (input->u32BufferFlags == BUFFER_VALID) {
+            validBuffers_.fetch_add(1, std::memory_order_relaxed);
+            processedFrames_.fetch_add(frames, std::memory_order_relaxed);
+        }
+        else if (input->u32BufferFlags == BUFFER_SILENT) {
+            silentBuffers_.fetch_add(1, std::memory_order_relaxed);
+        }
 
         if (input->u32BufferFlags == BUFFER_VALID && channels_ > 0) {
             std::span<float> samples(reinterpret_cast<float*>(input->pBuffer), static_cast<std::size_t>(frames) * channels_);
@@ -204,6 +299,10 @@ private:
     bool locked_ = false;
     Biquad lowCut_;
     Biquad highCut_;
+    std::atomic<std::uint64_t> processCalls_{0};
+    std::atomic<std::uint64_t> validBuffers_{0};
+    std::atomic<std::uint64_t> silentBuffers_{0};
+    std::atomic<std::uint64_t> processedFrames_{0};
 };
 
 CoCreatableClass(CanaryApo);

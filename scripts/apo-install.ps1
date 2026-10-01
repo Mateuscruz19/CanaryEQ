@@ -58,6 +58,9 @@ if (-not (Test-Path $fxKey)) {
 $DllPath = (Resolve-Path $DllPath).Path
 
 New-Item -ItemType Directory -Force $installDir | Out-Null
+$logDir = Join-Path $env:ProgramData "CanaryEQ"
+New-Item -ItemType Directory -Force $logDir | Out-Null
+& icacls.exe $logDir /grant "*S-1-5-19:(OI)(CI)M" | Out-Null
 $regPath = $fxKey -replace "^HKLM:\\", "HKLM\"
 & reg.exe export $regPath (Join-Path $installDir "backup-FxProperties.reg") /y | Out-Null
 
@@ -131,4 +134,5 @@ $properties = Get-ItemProperty "$endpoint\Properties"
 $deviceName = "$($properties.$friendlyName) ($($properties.$interfaceName))"
 Write-Host "CanaryEQ APO installed on: $deviceName"
 Write-Host "Backup of the original settings: $installDir"
+Write-Host "Diagnostic log: $logDir\apo-log.txt"
 Write-Host "To undo: apo-uninstall.ps1 (from an administrator PowerShell)"
