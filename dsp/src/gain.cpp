@@ -24,6 +24,11 @@ float Gain::linear() const
     return target_;
 }
 
+float Gain::currentLinear() const
+{
+    return current_;
+}
+
 void Gain::process(std::span<float> samples, std::size_t channels)
 {
     std::size_t frames = channels == 0 ? 0 : samples.size() / channels;

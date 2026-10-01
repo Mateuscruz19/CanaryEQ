@@ -1,4 +1,4 @@
-#include <doctest.h>
+﻿#include <doctest.h>
 
 #include <algorithm>
 #include <cmath>
@@ -15,7 +15,7 @@ constexpr std::size_t kBlockFrames = 480;
 
 canary::LoopingPlayer constantPlayer(float value)
 {
-    return canary::LoopingPlayer(std::vector<float>(kBlockFrames * kChannels * 4, value), kSampleRate, 0.0f);
+    return canary::LoopingPlayer(std::vector<float>(kBlockFrames * kChannels * 4, value), kSampleRate, kChannels, 0.0f);
 }
 
 std::vector<float> renderBlocks(canary::LoopingPlayer& player, int blocks)
@@ -31,7 +31,7 @@ std::vector<float> renderBlocks(canary::LoopingPlayer& player, int blocks)
 
 TEST_CASE("the player loops the song back to the start")
 {
-    canary::LoopingPlayer player({0.1f, 0.2f, 0.3f, 0.4f}, kSampleRate, 0.0f);
+    canary::LoopingPlayer player({0.1f, 0.2f, 0.3f, 0.4f}, kSampleRate, kChannels, 0.0f);
     std::vector<float> buffer(6);
     player.render(buffer, kChannels);
 
@@ -86,7 +86,7 @@ TEST_CASE("boosting the bass makes a low tone louder than a high tone")
             song[frame * kChannels] = value;
             song[frame * kChannels + 1] = value;
         }
-        canary::LoopingPlayer player(std::move(song), kSampleRate, 0.0f);
+        canary::LoopingPlayer player(std::move(song), kSampleRate, kChannels, 0.0f);
         player.setEqDecibels(canary::Band::Bass, 12.0f);
         renderBlocks(player, 60);
         std::vector<float> out = renderBlocks(player, 10);
@@ -101,4 +101,63 @@ TEST_CASE("boosting the bass makes a low tone louder than a high tone")
     float high = toneLevel(5000.0);
     CHECK(low > high * 3.0f);
     CHECK(low <= 0.26f);
+}
+
+TEST_CASE("the player reports how far into the song it is")
+{
+    canary::LoopingPlayer player = constantPlayer(0.5f);
+    CHECK(player.durationSeconds() == doctest::Approx(4.0 * kBlockFrames / kSampleRate));
+
+    renderBlocks(player, 2);
+    CHECK(player.positionSeconds() == doctest::Approx(2.0 * kBlockFrames / kSampleRate));
+}
+
+TEST_CASE("pausing fades out, then stays silent without moving forward")
+{
+    canary::LoopingPlayer player = constantPlayer(0.5f);
+    renderBlocks(player, 1);
+    player.setPaused(true);
+
+    std::vector<float> fade = renderBlocks(player, 1);
+    CHECK(fade.front() > 0.4f);
+    CHECK(fade.back() == doctest::Approx(0.0f));
+
+    double pausedAt = player.positionSeconds();
+    std::vector<float> silence = renderBlocks(player, 3);
+    CHECK(std::all_of(silence.begin(), silence.end(), [](float s) { return s == 0.0f; }));
+    CHECK(player.positionSeconds() == pausedAt);
+    CHECK(player.paused());
+
+    player.setPaused(false);
+    std::vector<float> resumed = renderBlocks(player, 1);
+    CHECK(resumed.front() < 0.01f);
+    CHECK(resumed.back() == doctest::Approx(0.5f));
+    CHECK(player.positionSeconds() > pausedAt);
+}
+
+TEST_CASE("seeking jumps to the requested point of the song")
+{
+    constexpr std::size_t frames = 4800;
+    std::vector<float> ramp(frames * kChannels);
+    for (std::size_t frame = 0; frame < frames; ++frame) {
+        ramp[frame * kChannels] = static_cast<float>(frame) / frames;
+        ramp[frame * kChannels + 1] = static_cast<float>(frame) / frames;
+    }
+    canary::LoopingPlayer player(std::move(ramp), kSampleRate, kChannels, 0.0f);
+
+    player.seekSeconds(0.05);
+    std::vector<float> buffer(kChannels * 4);
+    player.render(buffer, kChannels);
+
+    CHECK(buffer[0] == doctest::Approx(0.5f).epsilon(0.001));
+    CHECK(buffer[2] == doctest::Approx(2401.0f / frames).epsilon(0.001));
+    CHECK(player.positionSeconds() == doctest::Approx((2400.0 + 4.0) / kSampleRate));
+}
+
+TEST_CASE("seeking past the end stays inside the song")
+{
+    canary::LoopingPlayer player = constantPlayer(0.5f);
+    player.seekSeconds(999.0);
+    renderBlocks(player, 1);
+    CHECK(player.positionSeconds() < player.durationSeconds());
 }

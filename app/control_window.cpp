@@ -66,10 +66,34 @@ constexpr const char* kHtml = R"html(<!doctype html>
   .scale { position: relative; height: 16px; margin-top: 12px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .scale span { position: absolute; transform: translateX(-50%); }
   footer { font-size: 11px; color: var(--muted); }
+  #transport { display: grid; gap: 14px; padding-bottom: 26px; border-bottom: 1px solid var(--track); }
+  #transport .row { display: flex; align-items: center; gap: 14px; }
+  #track { flex: 1; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #time { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #play {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 15px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
 </style>
 </head>
 <body>
 <main>
+  <section id="transport">
+    <div class="row">
+      <button id="play" aria-label="Pause">❚❚</button>
+      <span id="track"></span>
+      <span id="time">0:00 / 0:00</span>
+    </div>
+    <input id="seek" type="range" min="0" max="1" step="0.1" value="0">
+  </section>
   <section id="gain"></section>
   <section id="balance"></section>
   <div class="group">
@@ -77,7 +101,7 @@ constexpr const char* kHtml = R"html(<!doctype html>
     <section id="mid"></section>
     <section id="treble"></section>
   </div>
-  <footer>Double-click a slider to reset it</footer>
+  <footer>Double-click a slider to reset it · Space to play/pause</footer>
 </main>
 <script>
   const signed = v => `${v > 0 ? "+" : ""}${v.toFixed(1)}`;
@@ -152,10 +176,75 @@ constexpr const char* kHtml = R"html(<!doctype html>
     label: v => `${signed(v)}<small>dB</small>`,
     onChange: v => window.setEq(band, v),
   }));
+
+  const play = document.getElementById("play");
+  const seek = document.getElementById("seek");
+  const time = document.getElementById("time");
+  document.getElementById("track").textContent = window.trackName || "";
+
+  const clock = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  let paused = false;
+  let dragging = false;
+
+  const showPaused = value => {
+    paused = value;
+    play.textContent = value ? "▶" : "❚❚";
+    play.setAttribute("aria-label", value ? "Play" : "Pause");
+  };
+  const showPosition = () => {
+    time.textContent = `${clock(Number(seek.value))} / ${clock(Number(seek.max))}`;
+    seek.style.setProperty("--to", `${Number(seek.value) / Number(seek.max) * 100}%`);
+  };
+  const togglePause = () => {
+    showPaused(!paused);
+    window.setPaused(paused);
+  };
+
+  play.addEventListener("click", togglePause);
+  document.addEventListener("keydown", event => {
+    if (event.code === "Space") {
+      event.preventDefault();
+      togglePause();
+    }
+  });
+  seek.addEventListener("pointerdown", () => { dragging = true; });
+  seek.addEventListener("input", showPosition);
+  seek.addEventListener("change", () => {
+    dragging = false;
+    window.seek(Number(seek.value));
+  });
+
+  const poll = async () => {
+    const status = await window.getPlayback();
+    seek.max = status.duration;
+    if (!dragging) {
+      seek.value = status.position;
+      showPosition();
+    }
+    if (status.paused !== paused) {
+      showPaused(status.paused);
+    }
+  };
+  poll();
+  setInterval(poll, 200);
 </script>
 </body>
 </html>
 )html";
+
+std::string jsonString(std::string_view text)
+{
+    std::string result = "\"";
+    for (char c : text) {
+        if (c == '"' || c == '\\') {
+            result += '\\';
+        }
+        if (static_cast<unsigned char>(c) >= 0x20) {
+            result += c;
+        }
+    }
+    return result + "\"";
+}
 
 }
 
@@ -163,20 +252,26 @@ void runControlWindow(const ControlWindowOptions& options)
 {
     webview::webview window(false, nullptr);
     window.set_title("CanaryEQ");
-    window.set_size(440, 640, WEBVIEW_HINT_FIXED);
+    window.set_size(440, 780, WEBVIEW_HINT_FIXED);
 
     for (std::string_view name : kControlNames) {
         window.bind(std::string(name), [&options, name](const std::string& request) -> std::string {
-            dispatchControl(options.handlers, name, request);
-            return "null";
+            return dispatchControl(options.handlers, name, request).value_or("null");
         });
     }
     window.bind("closeWindow", [&window](const std::string&) -> std::string {
         window.terminate();
         return "null";
     });
+    if (options.onAutomationReport) {
+        window.bind("reportResult", [&options](const std::string& request) -> std::string {
+            options.onAutomationReport(request);
+            return "null";
+        });
+    }
 
-    window.init(std::format("window.initialGain = {};", options.initialGainDecibels));
+    window.init(std::format("window.initialGain = {}; window.trackName = {};", options.initialGainDecibels,
+                            jsonString(options.trackName)));
     if (!options.automationScript.empty()) {
         window.init(options.automationScript);
     }

@@ -30,9 +30,14 @@ FetchContent_Declare(webview
 )
 FetchContent_MakeAvailable(webview)
 
+add_library(canary-wav STATIC third_party/dr_wav.cpp)
+target_include_directories(canary-wav SYSTEM PUBLIC third_party)
+target_compile_options(canary-wav PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4701>)
+
 add_subdirectory(dsp)
 add_subdirectory(engine)
 add_subdirectory(app)
+add_subdirectory(cli)
 
 enable_testing()
 add_subdirectory(tests)

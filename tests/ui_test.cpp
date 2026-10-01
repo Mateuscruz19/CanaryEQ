@@ -9,7 +9,9 @@
 namespace {
 
 constexpr const char* kAutomation = R"js(
-window.addEventListener("load", () => {
+window.addEventListener("load", async () => {
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const report = (key, value) => window.reportResult(key, String(value));
   const slider = id => document.querySelector(`#${id} input`);
   const label = id => document.querySelector(`#${id} output`).textContent;
   const move = (id, value) => {
@@ -18,16 +20,30 @@ window.addEventListener("load", () => {
   };
   const reset = id => slider(id).dispatchEvent(new MouseEvent("dblclick"));
 
-  const initialGain = Number(slider("gain").value);
+  report("initialGain", slider("gain").value);
   move("gain", -12);
   move("balance", 6);
+  report("balanceLabel", label("balance"));
   move("bass", 3);
   move("mid", -4);
   move("treble", 5);
   reset("bass");
-  window.setGain(initialGain === -8 ? 1000 : -1000);
-  window.setBalance(label("balance") === "R 6.0dB" ? 1000 : -1000);
-  setTimeout(() => window.closeWindow(), 500);
+
+  await wait(500);
+  report("track", document.getElementById("track").textContent);
+  report("time", document.getElementById("time").textContent);
+
+  document.getElementById("play").click();
+  await wait(400);
+  report("playLabel", document.getElementById("play").getAttribute("aria-label"));
+  document.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }));
+
+  const seek = document.getElementById("seek");
+  seek.value = 30;
+  seek.dispatchEvent(new Event("change"));
+
+  await wait(300);
+  window.closeWindow();
 });
 )js";
 
@@ -41,6 +57,17 @@ void check(bool condition, const std::string& what)
     }
 }
 
+bool reported(const std::vector<std::string>& reports, const std::string& key, const std::string& value)
+{
+    std::string expected = "[\"" + key + "\",\"" + value + "\"]";
+    for (const std::string& report : reports) {
+        if (report == expected) {
+            return true;
+        }
+    }
+    return false;
+}
+
 }
 
 int main()
@@ -48,16 +75,32 @@ int main()
     std::vector<float> gains;
     std::vector<float> balances;
     std::vector<std::pair<int, float>> eqs;
+    std::vector<bool> pauses;
+    std::vector<double> seeks;
+    std::vector<std::string> reports;
+    bool paused = false;
 
     try {
         canary::runControlWindow({
             .initialGainDecibels = -8.0f,
+            .trackName = "Test Track",
             .handlers = {
-                .onGainChanged = [&gains](float v) { gains.push_back(v); },
-                .onBalanceChanged = [&balances](float v) { balances.push_back(v); },
-                .onEqChanged = [&eqs](int band, float v) { eqs.emplace_back(band, v); },
+                .onGainChanged = [&](float v) { gains.push_back(v); },
+                .onBalanceChanged = [&](float v) { balances.push_back(v); },
+                .onEqChanged = [&](int band, float v) { eqs.emplace_back(band, v); },
+                .onPausedChanged =
+                    [&](bool v) {
+                        pauses.push_back(v);
+                        paused = v;
+                    },
+                .onSeek = [&](double v) { seeks.push_back(v); },
+                .playbackStatus =
+                    [&] {
+                        return canary::PlaybackStatus{.positionSeconds = 75.25, .durationSeconds = 198.0, .paused = paused};
+                    },
             },
             .automationScript = kAutomation,
+            .onAutomationReport = [&](const std::string& report) { reports.push_back(report); },
         });
     }
     catch (const std::exception& e) {
@@ -65,13 +108,19 @@ int main()
         return 1;
     }
 
-    check(gains.size() == 2 && gains[0] == -12.0f, "volume slider sends its value");
-    check(gains.size() == 2 && gains[1] == 1000.0f, "volume slider starts at the initial gain");
-    check(balances.size() == 2 && balances[0] == 6.0f, "balance slider sends its value");
-    check(balances.size() == 2 && balances[1] == 1000.0f, "balance label shows the side and amount");
+    check(reported(reports, "initialGain", "-8"), "volume slider starts at the initial gain");
+    check(gains == std::vector<float>{-12.0f}, "volume slider sends its value");
+    check(balances == std::vector<float>{6.0f}, "balance slider sends its value");
+    check(reported(reports, "balanceLabel", "R 6.0dB"), "balance label shows the side and amount");
 
     std::vector<std::pair<int, float>> expectedEq{{0, 3.0f}, {1, -4.0f}, {2, 5.0f}, {0, 0.0f}};
     check(eqs == expectedEq, "bass, mid and treble sliders send their band and value, double-click resets");
+
+    check(reported(reports, "track", "Test Track"), "the track name is shown");
+    check(reported(reports, "time", "1:15 / 3:18"), "the time follows the player position");
+    check(reported(reports, "playLabel", "Play"), "the play button switches to Play after pausing");
+    check(pauses == std::vector<bool>{true, false}, "the play button pauses and the space bar resumes");
+    check(seeks == std::vector<double>{30.0}, "releasing the position slider seeks");
 
     std::printf("%s\n", failures == 0 ? "all UI checks passed" : "UI checks failed");
     return failures == 0 ? 0 : 1;

@@ -11,6 +11,7 @@ public:
     void setDecibels(float decibels);
     void snapToTarget();
     float linear() const;
+    float currentLinear() const;
 
     void process(std::span<float> samples, std::size_t channels);
 
