@@ -55,6 +55,32 @@ public:
     }
 };
 
+class OuterUnknown final : public IUnknown {
+public:
+    STDMETHODIMP QueryInterface(REFIID iid, void** object) override
+    {
+        if (iid == __uuidof(IUnknown)) {
+            *object = this;
+            AddRef();
+            return S_OK;
+        }
+        *object = nullptr;
+        return E_NOINTERFACE;
+    }
+
+    STDMETHODIMP_(ULONG) AddRef() override
+    {
+        return ++references;
+    }
+
+    STDMETHODIMP_(ULONG) Release() override
+    {
+        return --references;
+    }
+
+    ULONG references = 1;
+};
+
 int failures = 0;
 
 void check(bool condition, const std::string& what)
@@ -122,6 +148,27 @@ int main(int argc, char** argv)
     check(SUCCEEDED(getClassObject(kCanaryApoClsid, IID_PPV_ARGS(&factory))), "the class factory is found by CLSID");
     if (!factory) {
         return 1;
+    }
+
+    OuterUnknown outer;
+    IUnknown* inner = nullptr;
+    check(SUCCEEDED(factory->CreateInstance(&outer, __uuidof(IUnknown), reinterpret_cast<void**>(&inner))) && inner,
+          "the APO can be created aggregated, the way audiodg creates it");
+    IAudioProcessingObject* refused = nullptr;
+    check(factory->CreateInstance(&outer, IID_PPV_ARGS(&refused)) == CLASS_E_NOAGGREGATION,
+          "aggregation that does not ask for IUnknown is refused");
+    if (inner) {
+        IAudioProcessingObject* aggregated = nullptr;
+        ULONG before = outer.references;
+        check(SUCCEEDED(inner->QueryInterface(IID_PPV_ARGS(&aggregated))) && aggregated,
+              "the inner object hands out the APO interface");
+        check(outer.references == before + 1, "references on the APO interface go to the outer object");
+        HNSTIME latency = 1;
+        check(aggregated && SUCCEEDED(aggregated->GetLatency(&latency)) && latency == 0, "the aggregated APO answers calls");
+        if (aggregated) {
+            aggregated->Release();
+        }
+        inner->Release();
     }
 
     ComPtr<IAudioProcessingObject> apo;

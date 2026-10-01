@@ -1,11 +1,9 @@
-﻿#include <windows.h>
+#include <windows.h>
 
 #include <audioenginebaseapo.h>
 #include <ks.h>
 #include <ksmedia.h>
 #include <mmreg.h>
-#include <wrl/implements.h>
-#include <wrl/module.h>
 
 #include <algorithm>
 #include <atomic>
@@ -14,6 +12,7 @@
 #include <cstdio>
 #include <cwchar>
 #include <initializer_list>
+#include <new>
 #include <span>
 
 #include "canary/biquad.h"
@@ -22,13 +21,13 @@ namespace canary {
 
 namespace {
 
-using Microsoft::WRL::ClassicCom;
-using Microsoft::WRL::RuntimeClass;
-using Microsoft::WRL::RuntimeClassFlags;
-
+constexpr CLSID kCanaryApoClsid = {0xB22EF1FC, 0x57E7, 0x4E77, {0xAC, 0x91, 0x1D, 0x23, 0x2B, 0xA2, 0x0C, 0xF2}};
 constexpr double kLowCutFrequency = 400.0;
 constexpr double kHighCutFrequency = 2500.0;
 constexpr double kCutDecibels = -30.0;
+
+std::atomic<long> liveObjects{0};
+std::atomic<long> serverLocks{0};
 
 void logLine(const void* instance, const char* format, ...)
 {
@@ -119,18 +118,46 @@ HRESULT negotiate(IAudioMediaType* opposite, IAudioMediaType* requested, IAudioM
 
 }
 
-class __declspec(uuid("B22EF1FC-57E7-4E77-AC91-1D232BA20CF2")) CanaryApo final
-    : public RuntimeClass<RuntimeClassFlags<ClassicCom>, IAudioProcessingObject, IAudioProcessingObjectRT,
-                          IAudioProcessingObjectConfiguration, IAudioSystemEffects> {
+class CanaryApo final : public IAudioProcessingObject,
+                        public IAudioProcessingObjectRT,
+                        public IAudioProcessingObjectConfiguration,
+                        public IAudioSystemEffects {
 public:
-    CanaryApo()
+    explicit CanaryApo(IUnknown* outer)
+        : inner_(this)
+        , outer_(outer ? outer : &inner_)
     {
-        logLine(this, "created");
+        liveObjects.fetch_add(1);
+        logLine(this, "created aggregated=%d", outer != nullptr);
     }
 
     ~CanaryApo()
     {
         logLine(this, "destroyed");
+        liveObjects.fetch_sub(1);
+    }
+
+    CanaryApo(const CanaryApo&) = delete;
+    CanaryApo& operator=(const CanaryApo&) = delete;
+
+    IUnknown* inner()
+    {
+        return &inner_;
+    }
+
+    STDMETHODIMP QueryInterface(REFIID iid, void** object) override
+    {
+        return outer_->QueryInterface(iid, object);
+    }
+
+    STDMETHODIMP_(ULONG) AddRef() override
+    {
+        return outer_->AddRef();
+    }
+
+    STDMETHODIMP_(ULONG) Release() override
+    {
+        return outer_->Release();
     }
 
     STDMETHODIMP Reset() override
@@ -159,7 +186,7 @@ public:
             return E_OUTOFMEMORY;
         }
         *result = {};
-        result->clsid = __uuidof(CanaryApo);
+        result->clsid = kCanaryApoClsid;
         result->Flags = static_cast<APO_FLAG>(APO_FLAG_INPLACE | APO_FLAG_FRAMESPERSECOND_MUST_MATCH |
                                               APO_FLAG_BITSPERSAMPLE_MUST_MATCH);
         wcscpy_s(result->szFriendlyName, L"CanaryEQ");
@@ -190,8 +217,8 @@ public:
         char opposite[96];
         char requested[96];
         logLine(this, "IsInputFormatSupported opposite=[%s] requested=[%s] -> 0x%08lX",
-                describe(outputFormat, opposite, sizeof(opposite)), describe(requestedInputFormat, requested, sizeof(requested)),
-                static_cast<unsigned long>(result));
+                describe(outputFormat, opposite, sizeof(opposite)),
+                describe(requestedInputFormat, requested, sizeof(requested)), static_cast<unsigned long>(result));
         return result;
     }
 
@@ -202,8 +229,8 @@ public:
         char opposite[96];
         char requested[96];
         logLine(this, "IsOutputFormatSupported opposite=[%s] requested=[%s] -> 0x%08lX",
-                describe(inputFormat, opposite, sizeof(opposite)), describe(requestedOutputFormat, requested, sizeof(requested)),
-                static_cast<unsigned long>(result));
+                describe(inputFormat, opposite, sizeof(opposite)),
+                describe(requestedOutputFormat, requested, sizeof(requested)), static_cast<unsigned long>(result));
         return result;
     }
 
@@ -275,7 +302,8 @@ public:
         }
 
         if (input->u32BufferFlags == BUFFER_VALID && channels_ > 0) {
-            std::span<float> samples(reinterpret_cast<float*>(input->pBuffer), static_cast<std::size_t>(frames) * channels_);
+            std::span<float> samples(reinterpret_cast<float*>(input->pBuffer),
+                                     static_cast<std::size_t>(frames) * channels_);
             lowCut_.process(samples, channels_);
             highCut_.process(samples, channels_);
             if (output->pBuffer != input->pBuffer) {
@@ -298,6 +326,62 @@ public:
     }
 
 private:
+    class Inner final : public IUnknown {
+    public:
+        explicit Inner(CanaryApo* owner)
+            : owner_(owner)
+        {
+        }
+
+        STDMETHODIMP QueryInterface(REFIID iid, void** object) override
+        {
+            if (!object) {
+                return E_POINTER;
+            }
+            if (iid == __uuidof(IUnknown)) {
+                *object = static_cast<IUnknown*>(this);
+            }
+            else if (iid == __uuidof(IAudioProcessingObject)) {
+                *object = static_cast<IAudioProcessingObject*>(owner_);
+            }
+            else if (iid == __uuidof(IAudioProcessingObjectRT)) {
+                *object = static_cast<IAudioProcessingObjectRT*>(owner_);
+            }
+            else if (iid == __uuidof(IAudioProcessingObjectConfiguration)) {
+                *object = static_cast<IAudioProcessingObjectConfiguration*>(owner_);
+            }
+            else if (iid == __uuidof(IAudioSystemEffects)) {
+                *object = static_cast<IAudioSystemEffects*>(owner_);
+            }
+            else {
+                *object = nullptr;
+                return E_NOINTERFACE;
+            }
+            static_cast<IUnknown*>(*object)->AddRef();
+            return S_OK;
+        }
+
+        STDMETHODIMP_(ULONG) AddRef() override
+        {
+            return refs_.fetch_add(1) + 1;
+        }
+
+        STDMETHODIMP_(ULONG) Release() override
+        {
+            ULONG remaining = refs_.fetch_sub(1) - 1;
+            if (remaining == 0) {
+                delete owner_;
+            }
+            return remaining;
+        }
+
+    private:
+        CanaryApo* owner_;
+        std::atomic<ULONG> refs_{1};
+    };
+
+    Inner inner_;
+    IUnknown* outer_;
     UINT32 channels_ = 0;
     bool locked_ = false;
     Biquad lowCut_;
@@ -308,7 +392,69 @@ private:
     std::atomic<std::uint64_t> processedFrames_{0};
 };
 
-CoCreatableClass(CanaryApo);
+namespace {
+
+class ClassFactory final : public IClassFactory {
+public:
+    STDMETHODIMP QueryInterface(REFIID iid, void** object) override
+    {
+        if (!object) {
+            return E_POINTER;
+        }
+        if (iid == __uuidof(IUnknown) || iid == __uuidof(IClassFactory)) {
+            *object = static_cast<IClassFactory*>(this);
+            return S_OK;
+        }
+        *object = nullptr;
+        return E_NOINTERFACE;
+    }
+
+    STDMETHODIMP_(ULONG) AddRef() override
+    {
+        return 2;
+    }
+
+    STDMETHODIMP_(ULONG) Release() override
+    {
+        return 1;
+    }
+
+    STDMETHODIMP CreateInstance(IUnknown* outer, REFIID iid, void** object) override
+    {
+        if (!object) {
+            return E_POINTER;
+        }
+        *object = nullptr;
+        if (outer && iid != __uuidof(IUnknown)) {
+            logLine(nullptr, "CreateInstance refused: aggregation must ask for IUnknown");
+            return CLASS_E_NOAGGREGATION;
+        }
+
+        auto* apo = new (std::nothrow) CanaryApo(outer);
+        if (!apo) {
+            return E_OUTOFMEMORY;
+        }
+        HRESULT result = apo->inner()->QueryInterface(iid, object);
+        logLine(nullptr, "CreateInstance aggregated=%d -> 0x%08lX", outer != nullptr, static_cast<unsigned long>(result));
+        apo->inner()->Release();
+        return result;
+    }
+
+    STDMETHODIMP LockServer(BOOL lock) override
+    {
+        if (lock) {
+            serverLocks.fetch_add(1);
+        }
+        else {
+            serverLocks.fetch_sub(1);
+        }
+        return S_OK;
+    }
+};
+
+ClassFactory classFactory;
+
+}
 
 }
 
@@ -325,12 +471,19 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
 
 STDAPI DllGetClassObject(REFCLSID clsid, REFIID iid, void** object)
 {
-    HRESULT result = Microsoft::WRL::Module<Microsoft::WRL::InProc>::GetModule().GetClassObject(clsid, iid, object);
+    if (!object) {
+        return E_POINTER;
+    }
+    *object = nullptr;
+    if (clsid != canary::kCanaryApoClsid) {
+        return CLASS_E_CLASSNOTAVAILABLE;
+    }
+    HRESULT result = canary::classFactory.QueryInterface(iid, object);
     canary::logLine(nullptr, "DllGetClassObject -> 0x%08lX", static_cast<unsigned long>(result));
     return result;
 }
 
 STDAPI DllCanUnloadNow()
 {
-    return Microsoft::WRL::Module<Microsoft::WRL::InProc>::GetModule().Terminate() ? S_OK : S_FALSE;
+    return canary::liveObjects.load() == 0 && canary::serverLocks.load() == 0 ? S_OK : S_FALSE;
 }
