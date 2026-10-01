@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>CanaryEQ CQ-26 Head Unit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --station: #ff7fb6;
+    --chrome: linear-gradient(180deg, #ffffff 0%, #d4d9e0 18%, #8a939f 48%, #5c6470 52%, #c6ccd4 80%, #eef1f4 100%);
+    --rubber: linear-gradient(180deg, #2a2e35 0%, #16191e 60%, #0f1115 100%);
+    --silk: #9aa3af;
+    --glow: color-mix(in srgb, var(--station) 75%, transparent);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    background:
+      radial-gradient(ellipse at 50% 40%, #3a3f48 0%, #1b1e23 55%, #0b0c0e 100%);
+    font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+    color: #e6ebf1;
+    overflow: hidden;
+    user-select: none;
+  }
+  .stage { position: absolute; left: 50%; top: 50%; width: 1240px; height: 390px; transform: translate(-50%, -50%); }
+
+  .dash {
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #23262c, #121418);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.06), 0 40px 80px rgba(0,0,0,.8);
+    padding: 22px 24px;
+  }
+  .trim {
+    position: relative;
+    height: 100%;
+    border-radius: 12px;
+    padding: 5px;
+    background: var(--chrome);
+    box-shadow: 0 0 0 1px #0b0c0e, 0 4px 10px rgba(0,0,0,.8);
+  }
+  .face {
+    position: relative;
+    height: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.13) 0%, rgba(255,255,255,.02) 22%, rgba(255,255,255,0) 50%, rgba(255,255,255,.04) 100%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px),
+      linear-gradient(180deg, #1c1f25 0%, #0d0f13 55%, #15181e 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(0,0,0,.9);
+    display: grid;
+    grid-template-columns: 54px 226px 1fr 210px;
+    grid-template-rows: 1fr 74px;
+    column-gap: 18px;
+    padding: 18px 20px 14px 14px;
+  }
+  .screw { position: absolute; width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #c8cdd4, #4b525c 70%); box-shadow: 0 1px 1px rgba(0,0,0,.8); }
+  .screw::after { content: ""; position: absolute; left: 1px; right: 1px; top: 4px; height: 1px; background: #2a2e34; transform: rotate(35deg); }
+  .silk { font: 600 10px "Barlow Condensed", sans-serif; letter-spacing: .16em; color: var(--silk); text-transform: uppercase; }
+  .model { position: absolute; top: 7px; left: 300px; display: flex; gap: 14px; align-items: baseline; }
+  .model b { font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: .22em; color: #c8d0da; }
+
+  .rubber {
+    position: relative;
+    border: none;
+    border-radius: 5px;
+    background: var(--rubber);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 2px 0 #050607, 0 3px 5px rgba(0,0,0,.7);
+    color: color-mix(in srgb, var(--station) 80%, #fff);
+    text-shadow: 0 0 6px var(--glow);
+    font: 700 11px "Barlow Condensed", sans-serif;
+    letter-spacing: .12em;
+    cursor: pointer;
+    transition: transform .06s, box-shadow .06s, color .5s, text-shadow .5s;
+  }
+  .rubber:active, .rubber.down { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 #050607; }
+  .rubber small { display: block; font: 600 8px "Barlow Condensed", sans-serif; letter-spacing: .14em; color: #7d8794; text-shadow: none; margin-top: 1px; }
+
+  .strip { grid-column: 1; grid-row: 1 / 3; display: grid; grid-template-rows: auto 1fr auto auto; gap: 10px; padding-top: 4px; }
+  .release { height: 34px; border-radius: 4px 4px 10px 4px; display: grid; place-items: center; font-size: 9px; color: #c9d1db; text-shadow: none; background: linear-gradient(180deg, #4a515b, #20242a); }
+  .strip .rubber { height: 44px; }
+  .ir { justify-self: center; width: 16px; height: 10px; border-radius: 3px; background: radial-gradient(circle at 40% 40%, #5a1a24, #1a0508); box-shadow: inset 0 0 2px #000; margin-top: 4px; }
+
+  .knob-zone { grid-column: 2; grid-row: 1 / 3; position: relative; display: grid; place-items: center; }
+  .knob-zone .arrow { position: absolute; width: 30px; height: 30px; border-radius: 50%; padding: 0; font-size: 11px; }
+  .knob-zone .up { top: 4px; left: 50%; margin-left: -15px; }
+  .knob-zone .down { bottom: 28px; left: 50%; margin-left: -15px; }
+  .knob-zone .prev { left: 0; top: 50%; margin-top: -27px; }
+  .knob-zone .next { right: 0; top: 50%; margin-top: -27px; }
+  .halo {
+    position: relative;
+    width: 168px;
+    height: 168px;
+    border-radius: 50%;
+    margin-top: -24px;
+    background: conic-gradient(from 225deg, var(--station) calc(var(--level) * 270deg), rgba(255,255,255,.04) 0 270deg, transparent 0);
+    box-shadow: 0 0 22px var(--glow), inset 0 0 12px var(--glow);
+    transition: box-shadow .5s;
+    cursor: ns-resize;
+    display: grid;
+    place-items: center;
+  }
+  .halo::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: #050608; box-shadow: inset 0 2px 6px #000; }
+  .knob {
+    position: relative;
+    width: 138px;
+    height: 138px;
+    border-radius: 50%;
+    background:
+      repeating-conic-gradient(from 0deg, rgba(0,0,0,.25) 0 2deg, transparent 2deg 4deg),
+      conic-gradient(from 0deg, #ffffff, #8a939f, #f1f3f6, #6d7581, #fafbfc, #8f98a5, #eceff3, #79828e, #ffffff);
+    box-shadow: 0 8px 14px rgba(0,0,0,.8), inset 0 0 0 2px rgba(255,255,255,.5);
+  }
+  .knob::before { content: ""; position: absolute; inset: 16px; border-radius: 50%; background: conic-gradient(from 20deg, #e9ecf0, #a2aab5, #f6f7f9, #8d96a2, #e9ecf0); box-shadow: inset 0 0 0 1px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.6); }
+  .knob::after { content: ""; position: absolute; inset: 40px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #2c323b, #08090b 75%); box-shadow: inset 0 2px 4px #000, 0 0 0 2px #9ea6b1; }
+  .knob .tick { position: absolute; left: 50%; top: 20px; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: var(--station); box-shadow: 0 0 8px var(--station); transform-origin: 2px 49px; z-index: 1; }
+  .knob-caption { position: absolute; bottom: 4px; text-align: center; line-height: 1.3; }
+
+  .center { grid-column: 3; grid-row: 1 / 3; display: grid; grid-template-rows: 1fr auto; gap: 10px; min-width: 0; }
+  .bezel { margin-top: 18px; border-radius: 7px; padding: 4px; background: var(--chrome); box-shadow: 0 2px 4px rgba(0,0,0,.9); }
+  .lcd {
+    position: relative;
+    height: 100%;
+    border-radius: 4px;
+    overflow: hidden;
+    padding: 8px 14px 8px;
+    background:
+      radial-gradient(circle, rgba(0,0,0,.45) 0 0.8px, transparent 1.2px) 0 0 / 3px 3px,
+      linear-gradient(180deg, color-mix(in srgb, var(--station) 9%, #07080b), #030304 70%);
+    box-shadow: inset 0 3px 10px rgba(0,0,0,.95), inset 0 0 0 1px #000;
+    color: var(--station);
+    font-family: "DotGothic16", monospace;
+    text-shadow: 0 0 7px var(--glow);
+    transition: color .5s, background .5s;
+    display: grid;
+    grid-template-columns: 1fr 176px;
+    grid-template-rows: auto 1fr auto auto;
+    row-gap: 4px;
+    column-gap: 16px;
+  }
+  .lcd::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 45%; background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0)); pointer-events: none; }
+  .icons { grid-column: 1 / 3; display: flex; gap: 10px; align-items: center; font-size: 11px; }
+  .icons span { opacity: .14; text-shadow: none; transition: opacity .2s; }
+  .icons span.on { opacity: 1; text-shadow: 0 0 6px var(--glow); }
+  .icons .box { border: 1px solid currentColor; border-radius: 2px; padding: 0 3px; font-size: 10px; line-height: 13px; }
+  .icons .clock { margin-left: auto; opacity: 1; text-shadow: 0 0 6px var(--glow); }
+  .main { grid-column: 1; grid-row: 2; display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; min-width: 0; }
+  .ticker-line { grid-column: 1; grid-row: 3; }
+  .seg svg { height: 54px; display: block; }
+  .seg .off { fill: color-mix(in srgb, var(--station) 9%, transparent); }
+  .seg .on { fill: var(--station); filter: drop-shadow(0 0 4px var(--glow)); }
+  .text-zone { min-width: 0; padding-bottom: 4px; }
+  .band { font-size: 12px; letter-spacing: .08em; opacity: .75; white-space: nowrap; overflow: hidden; }
+  .name { font-size: 25px; line-height: 1.05; letter-spacing: .1em; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+  .ticker { position: relative; overflow: hidden; white-space: nowrap; font-size: 14px; letter-spacing: .1em; opacity: .8; height: 20px; }
+  .ticker span { position: absolute; left: 0; animation: ticker 14s linear infinite; }
+  @keyframes ticker { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+  .viz { grid-row: 2 / 5; grid-column: 2; display: flex; align-items: flex-end; gap: 3px; height: 100%; padding: 6px 0 4px; }
+  .viz .col { flex: 1; height: 100%; display: flex; flex-direction: column-reverse; gap: 2px; }
+  .viz .col i { height: 4px; background: color-mix(in srgb, var(--station) 10%, transparent); }
+  .viz .col i.on { background: var(--station); box-shadow: 0 0 4px var(--glow); }
+  .viz .col i.peak { background: color-mix(in srgb, var(--station) 60%, #fff); }
+  .viz svg { width: 100%; height: 100%; }
+  .viz path { fill: none; stroke: var(--station); stroke-width: 2.5; filter: drop-shadow(0 0 4px var(--glow)); }
+  .viz .audio { width: 100%; display: grid; gap: 7px; align-self: center; font-size: 13px; letter-spacing: .1em; }
+  .viz .audio div { display: grid; grid-template-columns: 62px 1fr 48px; align-items: center; gap: 8px; }
+  .viz .audio .meter { height: 10px; display: flex; gap: 2px; }
+  .viz .audio .meter i { flex: 1; background: color-mix(in srgb, var(--station) 12%, transparent); }
+  .viz .audio .meter i.on { background: var(--station); box-shadow: 0 0 4px var(--glow); }
+  .tuning { grid-column: 1; grid-row: 4; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; font-size: 11px; letter-spacing: .06em; }
+  .tuning span { text-align: center; opacity: .3; border-top: 2px solid currentColor; padding-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tuning span.on { opacity: 1; }
+  .popup { position: absolute; inset: 0; display: grid; place-items: center; background: #030304; font-size: 44px; letter-spacing: .14em; opacity: 0; transition: opacity .12s; pointer-events: none; }
+  .popup.show { opacity: 1; }
+  .lcd.muted .main, .lcd.muted .viz { animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .15; } }
+
+  .presets { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .preset { height: 58px; text-align: left; padding: 6px 9px; overflow: hidden; }
+  .preset .num { font: 700 17px "Barlow Condensed", sans-serif; color: #e8edf3; text-shadow: none; }
+  .preset .legend { display: block; font: 600 11px "Barlow Condensed", sans-serif; letter-spacing: .1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #7c8693; text-shadow: none; }
+  .preset .sub { position: absolute; top: 6px; right: 8px; font: 600 9px "Barlow Condensed", sans-serif; letter-spacing: .1em; color: #6a7380; text-shadow: none; }
+  .preset.active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 #050607; }
+  .preset.active .legend { color: var(--station); text-shadow: 0 0 6px var(--glow); }
+  .preset.active::before { content: ""; position: absolute; left: 9px; right: 9px; bottom: 5px; height: 2px; border-radius: 1px; background: var(--station); box-shadow: 0 0 8px var(--station); }
+  .preset .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: color-mix(in srgb, var(--station) 28%, transparent); pointer-events: none; }
+  .preset > span { position: relative; }
+
+  .side { grid-column: 4; grid-row: 1 / 3; display: grid; grid-template-rows: auto auto auto 1fr; align-content: start; gap: 10px; padding-top: 18px; }
+  .fn { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .fn .rubber { height: 32px; }
+  .tone { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; justify-items: center; padding: 8px 4px 6px; border-radius: 6px; background: rgba(0,0,0,.25); box-shadow: inset 0 1px 3px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.05); }
+  .tone .head { grid-column: 1 / 4; justify-self: stretch; display: flex; justify-content: space-between; }
+  .mini {
+    position: relative;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: repeating-conic-gradient(#30353d 0 5deg, #15181c 5deg 10deg);
+    box-shadow: 0 3px 6px rgba(0,0,0,.8), inset 0 0 0 1px #4a515a;
+    cursor: ns-resize;
+  }
+  .mini::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #444b56, #121418); box-shadow: inset 0 1px 0 rgba(255,255,255,.2); }
+  .mini .mark { position: absolute; left: 50%; top: 6px; width: 3px; height: 13px; margin-left: -1.5px; border-radius: 2px; background: var(--station); box-shadow: 0 0 5px var(--station); transform-origin: 1.5px 17px; }
+  .tone label { text-align: center; line-height: 1.2; }
+  .balance { display: grid; gap: 4px; }
+  .balance .head { display: flex; justify-content: space-between; }
+  .slot { position: relative; height: 22px; border-radius: 3px; background: #040506; box-shadow: inset 0 2px 4px #000, 0 1px 0 rgba(255,255,255,.06); cursor: ew-resize; }
+  .slot .scale { position: absolute; inset: 0 10px; display: flex; justify-content: space-between; align-items: center; font: 600 9px "Barlow Condensed", sans-serif; color: #6c7581; }
+  .slot .thumb { position: absolute; top: -3px; width: 22px; height: 28px; margin-left: -11px; border-radius: 3px; background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(210,220,232,.2) 50%, rgba(255,255,255,.35)); box-shadow: 0 2px 5px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,255,255,.5); }
+  .slot .thumb::after { content: ""; position: absolute; left: 50%; top: 5px; bottom: 5px; width: 2px; margin-left: -1px; background: var(--station); box-shadow: 0 0 5px var(--station); }
+  .ports { align-self: end; display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
+  .jack { width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle, #000 0 4px, #2f343b 5px, #5e6670 7px, #1b1e22 8px); }
+  .usb { width: 30px; height: 12px; border-radius: 2px; background: #050607; box-shadow: inset 0 0 0 2px #59616b; position: relative; }
+  .usb::after { content: ""; position: absolute; left: 5px; right: 5px; top: 3px; height: 3px; background: #2b3138; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="dash">
+    <div class="trim">
+      <div class="face">
+        <div class="screw" style="left:5px;top:5px"></div>
+        <div class="screw" style="right:5px;top:5px"></div>
+        <div class="screw" style="left:5px;bottom:5px"></div>
+        <div class="screw" style="right:5px;bottom:5px"></div>
+        <div class="model"><b>CANARY · CQ-26</b><span class="silk">32-bit float DSP · 48 kHz · 10-band EQ · limiter</span></div>
+
+        <div class="strip">
+          <button class="rubber release" title="Detach">▲ OPEN</button>
+          <span></span>
+          <button class="rubber" id="src">SRC<small>HP / MIC</small></button>
+          <button class="rubber" id="band">BAND<small>FM1 · FM2</small></button>
+        </div>
+
+        <div class="knob-zone">
+          <button class="rubber arrow up" data-step="-1">▲</button>
+          <button class="rubber arrow prev" data-step="-1">◀</button>
+          <div class="halo" id="volume"><div class="knob"><div class="tick" id="tick"></div></div></div>
+          <button class="rubber arrow next" data-step="1">▶</button>
+          <button class="rubber arrow down" data-step="1">▼</button>
+          <div class="knob-caption silk">volume<br>◀ ▶ station · scroll to turn</div>
+        </div>
+
+        <div class="center">
+          <div class="bezel">
+            <div class="lcd" id="lcd">
+              <div class="icons">
+                <span class="on" id="i-src">HEADPHONES</span>
+                <span class="box on">ST</span>
+                <span class="box on" id="i-eq">EQ</span>
+                <span class="box on" id="i-lim">LIM</span>
+                <span class="box" id="i-cry">CRY</span>
+                <span class="box" id="i-edit">EDIT</span>
+                <span class="box" id="i-mute">MUTE</span>
+                <span class="box" id="i-ab">A</span>
+                <span class="clock" id="clock">00:00</span>
+              </div>
+              <div class="main">
+                <div class="seg" id="seg"></div>
+                <div class="text-zone">
+                  <div class="band" id="band-label">FM1 · MEM 1</div>
+                  <div class="name" id="name">DAWN PRO</div>
+                </div>
+              </div>
+              <div class="ticker ticker-line"><span>♪ ARIANA GRANDE — HATE THAT I MADE YOU LOVE ME · SPOTIFY · 1:42 / 3:28</span></div>
+              <div class="viz" id="viz"></div>
+              <div class="tuning" id="tuning"></div>
+              <div class="popup" id="popup"></div>
+            </div>
+          </div>
+          <div class="presets" id="presets"></div>
+        </div>
+
+        <div class="side">
+          <div class="fn">
+            <button class="rubber" id="disp">DISP<small>view</small></button>
+            <button class="rubber" id="mute">MUTE<small>silence</small></button>
+            <button class="rubber" id="ab">A / B<small>compare</small></button>
+          </div>
+          <div class="tone">
+            <div class="head"><span class="silk">tone</span><span class="silk">dbl-click = 0</span></div>
+            <div><div class="mini" data-key="bass"><div class="mark"></div></div></div>
+            <div><div class="mini" data-key="vocals"><div class="mark"></div></div></div>
+            <div><div class="mini" data-key="treble"><div class="mark"></div></div></div>
+            <label class="silk">bass</label>
+            <label class="silk">vocals</label>
+            <label class="silk">treble</label>
+          </div>
+          <div class="balance">
+            <div class="head"><span class="silk">balance</span><span class="silk" id="bal-readout">center</span></div>
+            <div class="slot" id="balance"><div class="scale"><span>L</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>R</span></div><div class="thumb" id="thumb"></div></div>
+          </div>
+          <div class="ports"><span class="silk">aux</span><span class="jack"></span><span class="silk">usb</span><span class="usb"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const HOLD_MS = 1500;
+  const banks = {
+    FM1: {
+      source: "HEADPHONES",
+      presets: [
+        { freq: "88.4", name: "DAWN PRO", sub: "measured", color: "#ff7fb6", eq: { bass: 0.8, vocals: 0.3, treble: -1.0 } },
+        { freq: "91.2", name: "LATE NIGHT", sub: "soft highs", color: "#d7dde6", eq: { bass: 1.5, vocals: -0.7, treble: -3.7 } },
+        { freq: "94.7", name: "VALORANT", sub: "footsteps", color: "#ff5b4d", eq: { bass: -1.0, vocals: 2.0, treble: 1.5 } },
+        { freq: "99.1", name: "PODCASTS", sub: "voices up", color: "#5fd38a", eq: { bass: -2.0, vocals: 3.0, treble: 0.0 } },
+        { freq: "103.5", name: "DISCORD", sub: "clearer", color: "#9b8cff", eq: { bass: -1.0, vocals: 1.5, treble: 0.5 } },
+        { freq: "107.0", name: "MY MIX", sub: "saved by you", color: "#ffb340", eq: { bass: 2.0, vocals: 0.0, treble: 1.5 } },
+      ],
+    },
+    FM2: {
+      source: "MICROPHONE",
+      presets: [
+        { freq: "87.6", name: "PODCAST VOICE", sub: "warm & close", color: "#ffcc2e", eq: { bass: 2.0, vocals: 2.5, treble: 1.0 } },
+        { freq: "90.3", name: "STREAM", sub: "punchy", color: "#4fd2ff", eq: { bass: 1.0, vocals: 3.0, treble: 2.0 } },
+        { freq: "93.9", name: "CALLS", sub: "clear & dry", color: "#5fd38a", eq: { bass: -3.0, vocals: 2.0, treble: 0.5 } },
+        { freq: "97.5", name: "NIGHT TALK", sub: "no hiss", color: "#d7dde6", eq: { bass: 0.0, vocals: 1.0, treble: -3.0 } },
+        { freq: "101.1", name: "RAW", sub: "no effects", color: "#9aa4b1", eq: { bass: 0.0, vocals: 0.0, treble: 0.0 } },
+        { freq: "105.7", name: "MY VOICE", sub: "saved by you", color: "#ff7fb6", eq: { bass: 1.0, vocals: 1.5, treble: 0.5 } },
+      ],
+    },
+  };
+  const state = { band: "FM1", active: 0, volume: -8, balance: 0, eq: { ...banks.FM1.presets[0].eq }, view: 0, muted: false, slot: "A" };
+  const views = ["SPECTRUM", "EQ CURVE", "AUDIO"];
+  const $ = id => document.getElementById(id);
+  const signed = v => `${v > 0 ? "+" : ""}${v.toFixed(1)}`;
+  const bank = () => banks[state.band];
+  const preset = () => bank().presets[state.active];
+
+  const SEGMENTS = { "0": "abcdef", "1": "bc", "2": "abged", "3": "abgcd", "4": "fgbc", "5": "afgcd", "6": "afgedc", "7": "abc", "8": "abcdefg", "9": "abcfgd", " ": "" };
+  const digitSvg = (char, x) => {
+    const on = new Set(SEGMENTS[char] ?? "");
+    const w = 34, h = 62, t = 6, s = 2;
+    const shapes = {
+      a: `${x + s + t},0 ${x + w - s - t},0 ${x + w - s - 1},${t / 2} ${x + w - s - t},${t} ${x + s + t},${t} ${x + s + 1},${t / 2}`,
+      g: `${x + s + t},${h / 2 - t / 2} ${x + w - s - t},${h / 2 - t / 2} ${x + w - s - 1},${h / 2} ${x + w - s - t},${h / 2 + t / 2} ${x + s + t},${h / 2 + t / 2} ${x + s + 1},${h / 2}`,
+      d: `${x + s + t},${h - t} ${x + w - s - t},${h - t} ${x + w - s - 1},${h - t / 2} ${x + w - s - t},${h} ${x + s + t},${h} ${x + s + 1},${h - t / 2}`,
+      f: `${x},${s + t} ${x + t / 2},${s + 1} ${x + t},${s + t} ${x + t},${h / 2 - s - t / 2} ${x + t / 2},${h / 2 - s} ${x},${h / 2 - s - t / 2}`,
+      b: `${x + w - t},${s + t} ${x + w - t / 2},${s + 1} ${x + w},${s + t} ${x + w},${h / 2 - s - t / 2} ${x + w - t / 2},${h / 2 - s} ${x + w - t},${h / 2 - s - t / 2}`,
+      e: `${x},${h / 2 + s + t / 2} ${x + t / 2},${h / 2 + s} ${x + t},${h / 2 + s + t / 2} ${x + t},${h - s - t} ${x + t / 2},${h - s - 1} ${x},${h - s - t}`,
+      c: `${x + w - t},${h / 2 + s + t / 2} ${x + w - t / 2},${h / 2 + s} ${x + w},${h / 2 + s + t / 2} ${x + w},${h - s - t} ${x + w - t / 2},${h - s - 1} ${x + w - t},${h - s - t}`,
+    };
+    return Object.entries(shapes).map(([key, points]) => `<polygon class="${on.has(key) ? "on" : "off"}" points="${points}" transform="skewX(-6) translate(6 0)"/>`).join("");
+  };
+  const sevenSegment = text => {
+    const [whole, fraction = ""] = text.split(".");
+    const digits = whole.padStart(3, " ") + fraction.padEnd(1, " ");
+    let x = 0, svg = "";
+    [...digits].forEach((char, i) => {
+      svg += digitSvg(char, x);
+      x += 42;
+      if (i === 2) {
+        svg += `<rect class="on" x="${x - 4}" y="56" width="7" height="6" transform="skewX(-6) translate(6 0)"/>`;
+        x += 8;
+      }
+    });
+    return `<svg viewBox="-2 -1 ${x + 10} 64">${svg}</svg>`;
+  };
+
+  const viz = $("viz");
+  const columns = 16, cells = 14;
+  const peaks = new Array(columns).fill(0);
+  const renderViz = () => {
+    if (views[state.view] === "SPECTRUM") {
+      viz.innerHTML = Array.from({ length: columns }, () => `<div class="col">${"<i></i>".repeat(cells)}</div>`).join("");
+    }
+    else if (views[state.view] === "EQ CURVE") {
+      const y = v => 50 - v * 3.2;
+      const { bass, vocals, treble } = state.eq;
+      viz.innerHTML = `<svg viewBox="0 0 250 100" preserveAspectRatio="none"><path d="M0 ${y(bass)} C60 ${y(bass)} 80 ${y(bass)} 110 ${y((bass + vocals) / 2)} S150 ${y(vocals)} 175 ${y(vocals)} S220 ${y(treble)} 250 ${y(treble)}"/><path d="M0 50 H250" style="opacity:.2;stroke-dasharray:3 4"/></svg>`;
+    }
+    else {
+      viz.innerHTML = `<div class="audio">${["bass", "vocals", "treble"].map(k => `<div><span>${k.toUpperCase()}</span><span class="meter">${Array.from({ length: 24 }, (_, i) => `<i class="${(() => { const pos = i - 11.5; const v = state.eq[k]; return (v > 0 && pos > 0 && pos <= v + 0.5) || (v < 0 && pos < 0 && pos >= v - 0.5) || Math.abs(pos) < 1 ? "on" : ""; })()}"></i>`).join("")}</span><span>${signed(state.eq[k])}</span></div>`).join("")}</div>`;
+    }
+  };
+
+  let popupTimer = null;
+  const popup = text => {
+    $("popup").textContent = text;
+    $("popup").classList.add("show");
+    clearTimeout(popupTimer);
+    popupTimer = setTimeout(() => $("popup").classList.remove("show"), 900);
+  };
+
+  const render = () => {
+    const current = preset();
+    document.documentElement.style.setProperty("--station", current.color);
+    $("seg").innerHTML = sevenSegment(current.freq);
+    $("name").textContent = current.name;
+    $("band-label").textContent = `${state.band} · MEM ${state.active + 1} · ${current.sub.toUpperCase()}`;
+    $("i-src").textContent = bank().source;
+    const edited = Object.keys(state.eq).some(k => Math.abs(state.eq[k] - current.eq[k]) > 0.05);
+    $("i-edit").classList.toggle("on", edited);
+    $("i-mute").classList.toggle("on", state.muted);
+    $("i-ab").textContent = state.slot;
+    $("i-ab").classList.add("on");
+    $("lcd").classList.toggle("muted", state.muted);
+    $("tuning").innerHTML = bank().presets.map((p, i) => `<span class="${i === state.active ? "on" : ""}">${p.name}</span>`).join("");
+    const level = (state.volume + 40) / 46;
+    $("volume").style.setProperty("--level", level.toFixed(3));
+    $("tick").style.transform = `rotate(${-135 + level * 270}deg)`;
+    for (const key of ["bass", "vocals", "treble"]) {
+      document.querySelector(`.mini[data-key="${key}"] .mark`).style.transform = `rotate(${state.eq[key] / 12 * 135}deg)`;
+    }
+    $("thumb").style.left = `calc(10px + ${(state.balance + 5) / 10} * (100% - 20px))`;
+    $("bal-readout").textContent = state.balance === 0 ? "center" : `${state.balance < 0 ? "left" : "right"} ${Math.abs(state.balance)}`;
+    document.querySelectorAll(".preset").forEach((element, i) => {
+      const p = bank().presets[i];
+      element.classList.toggle("active", i === state.active);
+      element.querySelector(".legend").textContent = `${p.freq} ${p.name}`;
+    });
+    if (views[state.view] !== "SPECTRUM") renderViz();
+  };
+
+  const tune = index => {
+    state.active = (index + 6) % 6;
+    state.eq = { ...preset().eq };
+    render();
+    popup(`${preset().freq} ${preset().name}`);
+  };
+
+  const drag = (element, onDelta) => {
+    element.addEventListener("pointerdown", event => {
+      element.setPointerCapture(event.pointerId);
+      let last = event.clientY;
+      const move = e => { onDelta(last - e.clientY); last = e.clientY; render(); };
+      element.addEventListener("pointermove", move);
+      element.addEventListener("pointerup", () => element.removeEventListener("pointermove", move), { once: true });
+    });
+    element.addEventListener("wheel", e => { e.preventDefault(); onDelta(-e.deltaY / 4); render(); }, { passive: false });
+  };
+  drag($("volume"), d => { state.volume = Math.max(-40, Math.min(6, Math.round((state.volume + d * 0.25) * 2) / 2)); popup(`VOL ${signed(state.volume)}`); });
+  document.querySelectorAll(".mini").forEach(knob => {
+    const key = knob.dataset.key;
+    drag(knob, d => { state.eq[key] = Math.max(-12, Math.min(12, Math.round((state.eq[key] + d * 0.08) * 2) / 2)); popup(`${key.toUpperCase()} ${signed(state.eq[key])}`); });
+    knob.addEventListener("dblclick", () => { state.eq[key] = 0; render(); popup(`${key.toUpperCase()} 0.0`); });
+  });
+
+  const setBalance = e => {
+    const rect = $("balance").getBoundingClientRect();
+    state.balance = Math.round(Math.min(1, Math.max(0, (e.clientX - rect.left - 10) / (rect.width - 20))) * 10 - 5);
+    render();
+    popup(state.balance === 0 ? "BAL CENTER" : `BAL ${state.balance < 0 ? "L" : "R"}${Math.abs(state.balance)}`);
+  };
+  $("balance").addEventListener("pointerdown", e => {
+    $("balance").setPointerCapture(e.pointerId);
+    setBalance(e);
+    $("balance").addEventListener("pointermove", setBalance);
+    $("balance").addEventListener("pointerup", () => $("balance").removeEventListener("pointermove", setBalance), { once: true });
+  });
+  $("balance").addEventListener("dblclick", () => { state.balance = 0; render(); popup("BAL CENTER"); });
+
+  document.querySelectorAll(".arrow").forEach(button => button.addEventListener("click", () => tune(state.active + Number(button.dataset.step))));
+  $("band").addEventListener("click", () => { state.band = state.band === "FM1" ? "FM2" : "FM1"; tune(0); popup(`${state.band} · ${bank().source}`); });
+  $("src").addEventListener("click", () => $("band").click());
+  $("disp").addEventListener("click", () => { state.view = (state.view + 1) % views.length; renderViz(); popup(views[state.view]); });
+  $("mute").addEventListener("click", () => { state.muted = !state.muted; render(); popup(state.muted ? "MUTE" : "MUTE OFF"); });
+  $("ab").addEventListener("click", () => { state.slot = state.slot === "A" ? "B" : "A"; render(); popup(`SETTING ${state.slot}`); });
+
+  for (let index = 0; index < 6; index++) {
+    const button = document.createElement("button");
+    button.className = "rubber preset";
+    button.innerHTML = `<div class="fill"></div><span class="num">${index + 1}</span><span class="sub">HOLD = SAVE</span><span class="legend"></span>`;
+    const fill = button.querySelector(".fill");
+    let start = 0, saved = false, frame = null;
+    const tick = () => {
+      const progress = Math.min(1, (performance.now() - start) / HOLD_MS);
+      fill.style.width = `${progress * 100}%`;
+      if (progress >= 1) {
+        saved = true;
+        bank().presets[index].eq = { ...state.eq };
+        state.active = index;
+        render();
+        popup(`★ MEM ${index + 1} STORED`);
+        return;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    button.addEventListener("pointerdown", () => { start = performance.now(); saved = false; frame = requestAnimationFrame(tick); });
+    button.addEventListener("pointerup", () => { cancelAnimationFrame(frame); fill.style.width = "0"; if (start && !saved) tune(index); start = 0; });
+    button.addEventListener("pointerleave", () => { cancelAnimationFrame(frame); fill.style.width = "0"; start = 0; });
+    $("presets").appendChild(button);
+  }
+
+  let t = 0;
+  const animate = () => {
+    t += 0.05;
+    const now = new Date();
+    $("clock").textContent = `${String(now.getHours()).padStart(2, "0")}${now.getSeconds() % 2 ? ":" : " "}${String(now.getMinutes()).padStart(2, "0")}`;
+    if (views[state.view] === "SPECTRUM") {
+      viz.querySelectorAll(".col").forEach((col, i) => {
+        const band = i / columns;
+        const tilt = band < 0.3 ? state.eq.bass : band < 0.65 ? state.eq.vocals : state.eq.treble;
+        const energy = state.muted ? 0 : (0.3 + 0.45 * Math.abs(Math.sin(t * (1.1 + band * 2.4) + i * 0.8))) * (1 - band * 0.35) * Math.pow(10, tilt / 30);
+        const lit = Math.max(1, Math.min(cells, Math.round(energy * cells)));
+        peaks[i] = Math.max(lit, peaks[i] - 0.15);
+        col.querySelectorAll("i").forEach((cell, j) => {
+          cell.className = j < lit ? "on" : (j === Math.round(peaks[i]) ? "peak" : "");
+        });
+      });
+    }
+    requestAnimationFrame(animate);
+  };
+
+  const fit = () => {
+    const scale = Math.min(1, (innerWidth - 20) / 1260, (innerHeight - 20) / 410);
+    $("stage").style.transform = `translate(-50%, -50%) scale(${scale})`;
+  };
+  addEventListener("resize", fit);
+  fit();
+
+  const params = new URLSearchParams(location.search);
+  if (params.get("band") === "FM2") state.band = "FM2";
+  if (params.has("press")) state.active = Number(params.get("press"));
+  state.eq = { ...preset().eq };
+  if (params.has("view")) state.view = Number(params.get("view"));
+  if (params.has("balance")) state.balance = Number(params.get("balance"));
+  if (params.has("edited")) state.eq.bass += 3;
+  renderViz();
+  render();
+  animate();
+</script>
+</body>
+</html>
