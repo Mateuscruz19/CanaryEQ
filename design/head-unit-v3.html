@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>CanaryEQ CQ-26 v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --station: #ff7fb6;
+    --lit: var(--station);
+    --halo: color-mix(in srgb, var(--station) 55%, transparent);
+
+    --body-top: #1c1f24;
+    --body-bottom: #121417;
+    --recess: #08090b;
+    --lcd-ground: #050608;
+    --silk: #9aa3af;
+    --silk-dim: #6b7380;
+    --legend-off: #c4cbd4;
+    --chrome: linear-gradient(180deg, #f4f6f8 0%, #c9ced6 22%, #8a929d 50%, #6a717c 53%, #c9ced6 82%, #e9ecef 100%);
+    --brand: #ffcc2e;
+
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+    --r-lcd: 2px; --r-button: 4px; --r-face: 8px;
+
+    --raise: 0 2px 0 #050607, 0 3px 6px rgba(0,0,0,.6);
+    --press: 0 0 0 #050607, 0 1px 2px rgba(0,0,0,.6);
+    --sink: inset 0 2px 4px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.05);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker span { animation: none !important; }
+    * { transition-duration: 0s !important; }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 40%, #33373e 0%, #18191c 55%, #0a0a0b 100%);
+    font-family: "Barlow Condensed", sans-serif;
+    color: var(--legend-off);
+    overflow: hidden;
+    user-select: none;
+  }
+  .stage { position: absolute; left: 50%; top: 50%; width: 1232px; height: 384px; transform: translate(-50%, -50%); }
+
+  .dash { position: absolute; inset: 0; padding: var(--s5); border-radius: 12px; background: linear-gradient(180deg, #24272c, #141518); box-shadow: 0 40px 80px rgba(0,0,0,.8); }
+  .trim { height: 100%; padding: var(--s1); border-radius: calc(var(--r-face) + var(--s1)); background: var(--chrome); box-shadow: 0 0 0 1px #000, 0 4px 10px rgba(0,0,0,.8); }
+  .face {
+    position: relative;
+    height: 100%;
+    border-radius: var(--r-face);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,0) 30%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 1px, transparent 1px 4px),
+      linear-gradient(180deg, var(--body-top), var(--body-bottom));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
+    display: grid;
+    grid-template-columns: 56px 208px 1fr 224px;
+    column-gap: var(--s5);
+    padding: var(--s4) var(--s5) var(--s4) var(--s4);
+  }
+
+  .silk { font-weight: 600; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--silk); }
+  .silk.dim { color: var(--silk-dim); }
+
+  .button {
+    position: relative;
+    border: none;
+    border-radius: var(--r-button);
+    background: linear-gradient(180deg, #2b2f36 0%, #181b20 60%, #111317 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.16), var(--raise);
+    color: var(--legend-off);
+    font: 600 12px "Barlow Condensed", sans-serif;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 70ms, box-shadow 70ms, color .5s;
+  }
+  .button:hover { color: #fff; }
+  .button:active, .button.on { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), var(--press); }
+  .button.on { color: var(--lit); text-shadow: 0 0 6px var(--halo); }
+  .button .hint { display: block; margin-top: 2px; font-size: 9px; letter-spacing: .14em; color: var(--silk-dim); text-shadow: none; }
+
+  .rail { display: grid; grid-template-rows: auto 1fr auto; gap: var(--s2); }
+  .rail .button { height: 48px; }
+  .power { width: 8px; height: 8px; justify-self: center; align-self: center; border-radius: 50%; background: var(--brand); box-shadow: 0 0 6px var(--brand); }
+
+  .knob-zone { position: relative; display: grid; place-items: center; grid-template-rows: 1fr auto; }
+  .halo {
+    position: relative;
+    width: 168px;
+    height: 168px;
+    border-radius: 50%;
+    background: conic-gradient(from 225deg, var(--lit) calc(var(--level) * 270deg), #1a1d22 0 270deg, transparent 0);
+    filter: drop-shadow(0 0 10px var(--halo));
+    display: grid;
+    place-items: center;
+    cursor: ns-resize;
+    transition: filter .5s;
+  }
+  .halo::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--recess); box-shadow: inset 0 2px 6px #000; }
+  .knob {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background:
+      repeating-conic-gradient(rgba(0,0,0,.22) 0 2deg, transparent 2deg 4deg),
+      conic-gradient(#f7f8fa, #8b939e, #eff1f4, #6e7682, #f7f8fa, #8f97a3, #eceef2, #7a828e, #f7f8fa);
+    box-shadow: 0 8px 14px rgba(0,0,0,.75), inset 0 0 0 2px rgba(255,255,255,.45);
+  }
+  .knob::before { content: ""; position: absolute; inset: 16px; border-radius: 50%; background: conic-gradient(from 20deg, #e6e9ed, #a3abb5, #f4f5f7, #8e97a2, #e6e9ed); box-shadow: inset 0 0 0 1px rgba(0,0,0,.25); }
+  .knob::after { content: ""; position: absolute; inset: 40px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #2c3139, #08090b 75%); box-shadow: inset 0 2px 4px #000, 0 0 0 2px #9ea6b1; }
+  .tick { position: absolute; left: 50%; top: 20px; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: var(--lit); box-shadow: 0 0 6px var(--lit); transform-origin: 2px 50px; z-index: 1; }
+  .knob-zone .row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--s2); width: 100%; }
+  .knob-zone .row .button { height: 28px; }
+
+  .center { display: grid; grid-template-rows: 1fr auto; gap: var(--s3); min-width: 0; }
+  .header { display: flex; justify-content: space-between; align-items: center; height: 16px; }
+  .header b { font-weight: 700; font-size: 12px; letter-spacing: .24em; color: #d5dbe3; }
+  .header .brand { display: flex; align-items: center; gap: var(--s2); }
+  .header img { width: 20px; height: 20px; }
+
+  .bezel { margin-top: var(--s2); padding: var(--s1); border-radius: calc(var(--r-lcd) + var(--s1)); background: var(--chrome); box-shadow: 0 2px 4px rgba(0,0,0,.9); }
+  .lcd {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    border-radius: var(--r-lcd);
+    padding: var(--s2) var(--s4);
+    background:
+      radial-gradient(circle, rgba(0,0,0,.5) 0 .8px, transparent 1.2px) 0 0 / 3px 3px,
+      linear-gradient(180deg, color-mix(in srgb, var(--station) 8%, var(--lcd-ground)), var(--lcd-ground) 70%);
+    box-shadow: inset 0 3px 10px #000;
+    color: var(--lit);
+    font-family: "DotGothic16", monospace;
+    text-shadow: 0 0 6px var(--halo);
+    transition: color .5s, background .5s;
+    display: grid;
+    grid-template-columns: 1fr 176px;
+    grid-template-rows: 16px 1fr 18px 18px;
+    row-gap: var(--s1);
+    column-gap: var(--s4);
+  }
+  .lcd::after { content: ""; position: absolute; inset: 0 0 50% 0; background: linear-gradient(180deg, rgba(255,255,255,.05), transparent); pointer-events: none; }
+  .tags { grid-column: 1 / 3; display: flex; align-items: center; gap: var(--s2); font-size: 11px; }
+  .tags span { opacity: .12; text-shadow: none; }
+  .tags span.on { opacity: 1; text-shadow: 0 0 6px var(--halo); }
+  .tags .box { border: 1px solid currentColor; border-radius: 2px; padding: 0 3px; line-height: 13px; font-size: 10px; }
+  .tags .clock { margin-left: auto; opacity: .9; }
+  .main { grid-column: 1; grid-row: 2; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--s3); min-width: 0; }
+  .seg svg { height: 54px; display: block; }
+  .seg .off { fill: color-mix(in srgb, var(--station) 8%, transparent); }
+  .seg .on { fill: var(--lit); filter: drop-shadow(0 0 3px var(--halo)); }
+  .names { min-width: 0; }
+  .bank { font-size: 12px; letter-spacing: .08em; opacity: .7; white-space: nowrap; }
+  .name { font-size: 24px; letter-spacing: .1em; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ticker { grid-column: 1; grid-row: 3; position: relative; overflow: hidden; white-space: nowrap; font-size: 13px; letter-spacing: .08em; opacity: .75; }
+  .ticker span { position: absolute; left: 0; animation: ticker 16s linear infinite; }
+  @keyframes ticker { from { transform: translateX(60%); } to { transform: translateX(-100%); } }
+  .tuning { grid-column: 1; grid-row: 4; display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--s1); font-size: 10px; letter-spacing: .04em; }
+  .tuning span { text-align: center; opacity: .25; border-top: 2px solid currentColor; padding-top: 1px; white-space: nowrap; overflow: hidden; }
+  .tuning span.on { opacity: 1; }
+  .viz { grid-column: 2; grid-row: 2 / 5; display: flex; align-items: flex-end; gap: 3px; padding: var(--s1) 0; }
+  .viz .col { flex: 1; height: 100%; display: flex; flex-direction: column-reverse; gap: 2px; }
+  .viz .col i { height: 4px; background: color-mix(in srgb, var(--station) 9%, transparent); }
+  .viz .col i.on { background: var(--lit); }
+  .viz .col i.peak { background: color-mix(in srgb, var(--lit) 55%, #fff); }
+  .viz svg { width: 100%; height: 100%; }
+  .viz path { fill: none; stroke: var(--lit); stroke-width: 2.5; }
+  .viz .audio { width: 100%; display: grid; gap: var(--s2); align-self: center; font-size: 12px; letter-spacing: .08em; }
+  .viz .audio div { display: grid; grid-template-columns: 52px 1fr 40px; gap: var(--s2); align-items: center; }
+  .viz .audio .meter { display: flex; gap: 2px; height: 10px; }
+  .viz .audio .meter i { flex: 1; background: color-mix(in srgb, var(--station) 10%, transparent); }
+  .viz .audio .meter i.on { background: var(--lit); }
+  .popup { position: absolute; inset: 0; display: grid; place-items: center; background: var(--lcd-ground); font-size: 40px; letter-spacing: .14em; opacity: 0; transition: opacity 120ms; pointer-events: none; }
+  .popup.show { opacity: 1; }
+  .lcd.muted .main, .lcd.muted .viz { animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .12; } }
+
+  .presets { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--s2); }
+  .preset { height: 56px; padding: var(--s1) var(--s2); text-align: left; overflow: hidden; display: grid; grid-template-rows: auto auto; align-content: center; }
+  .preset .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .preset .num { font-size: 16px; font-weight: 700; color: #e8edf3; letter-spacing: 0; }
+  .preset .freq { font-size: 11px; color: var(--silk-dim); letter-spacing: .06em; }
+  .preset .label { font-size: 12px; letter-spacing: .08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .preset.on .num { color: var(--lit); }
+  .preset.on .freq { color: color-mix(in srgb, var(--lit) 70%, #888); }
+  .preset.on::after { content: ""; position: absolute; left: var(--s2); right: var(--s2); bottom: var(--s1); height: 2px; border-radius: 1px; background: var(--lit); box-shadow: 0 0 6px var(--lit); }
+  .preset .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: color-mix(in srgb, var(--lit) 25%, transparent); pointer-events: none; }
+  .preset > * { position: relative; }
+
+  .side { display: grid; grid-template-rows: 16px 40px auto auto 1fr; gap: var(--s3); min-width: 0; }
+  .side .fn { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2); }
+  .panel { padding: var(--s2) var(--s3); border-radius: var(--r-button); background: rgba(0,0,0,.22); box-shadow: var(--sink); }
+  .panel .head { display: flex; justify-content: space-between; margin-bottom: var(--s2); }
+  .tone { display: grid; grid-template-columns: repeat(3, 1fr); justify-items: center; row-gap: var(--s1); }
+  .mini {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: repeating-conic-gradient(#30353d 0 5deg, #16181c 5deg 10deg);
+    box-shadow: 0 3px 6px rgba(0,0,0,.75), inset 0 0 0 1px #464c55;
+    cursor: ns-resize;
+  }
+  .mini::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #444b55, #121418); box-shadow: inset 0 1px 0 rgba(255,255,255,.18); }
+  .mini .mark { position: absolute; left: 50%; top: 6px; width: 3px; height: 12px; margin-left: -1.5px; border-radius: 2px; background: #e6eaef; transform-origin: 1.5px 16px; }
+  .mini.edited .mark { background: var(--lit); box-shadow: 0 0 5px var(--lit); }
+  .slot { position: relative; height: 24px; border-radius: 2px; background: var(--recess); box-shadow: var(--sink); cursor: ew-resize; }
+  .slot .scale { position: absolute; inset: 0 var(--s3); display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: 600; color: var(--silk-dim); }
+  .slot .thumb { position: absolute; top: -3px; width: 20px; height: 30px; margin-left: -10px; border-radius: 2px; background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(215,224,235,.18) 50%, rgba(255,255,255,.32)); box-shadow: 0 2px 5px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,255,255,.5); }
+  .slot .thumb::after { content: ""; position: absolute; left: 50%; top: 5px; bottom: 5px; width: 2px; margin-left: -1px; background: #e6eaef; }
+  .slot.offset .thumb::after { background: var(--lit); box-shadow: 0 0 5px var(--lit); }
+  .usb { align-self: end; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--s2); height: 32px; padding: 0 var(--s3); }
+  .usb .port { width: 28px; height: 10px; border-radius: 1px; background: var(--recess); box-shadow: inset 0 0 0 2px #58606a; position: relative; }
+  .usb .port::after { content: ""; position: absolute; left: 5px; right: 5px; top: 3px; height: 2px; background: #2a2f36; }
+
+  .compact .side, .compact .knob-zone { display: none; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="dash">
+    <div class="trim">
+      <div class="face" id="face">
+        <div class="rail">
+          <button class="button" id="compact">Mini<span class="hint">compact</span></button>
+          <span class="power" title="CanaryEQ on"></span>
+          <button class="button" id="src">Src<span class="hint">hp · mic</span></button>
+        </div>
+
+        <div class="knob-zone">
+          <div class="halo" id="volume"><div class="knob"><div class="tick" id="tick"></div></div></div>
+          <div class="row">
+            <button class="button" data-step="-1">◀</button>
+            <span class="silk">volume</span>
+            <button class="button" data-step="1">▶</button>
+          </div>
+        </div>
+
+        <div class="center">
+          <div>
+            <div class="header">
+              <span class="brand"><img src="logo/icon-v1.png" alt=""><b>CANARY · CQ-26</b></span>
+              <span class="silk dim">3-band eq · balance · limiter · 48 khz</span>
+            </div>
+            <div class="bezel">
+              <div class="lcd" id="lcd">
+                <div class="tags">
+                  <span class="on" id="source">HEADPHONES</span>
+                  <span class="box on">EQ</span>
+                  <span class="box on">LIM</span>
+                  <span class="box" id="tag-edit">EDIT</span>
+                  <span class="box" id="tag-mute">MUTE</span>
+                  <span class="box on" id="tag-ab">A</span>
+                  <span class="clock" id="clock"></span>
+                </div>
+                <div class="main">
+                  <div class="seg" id="seg"></div>
+                  <div class="names"><div class="bank" id="bank"></div><div class="name" id="name"></div></div>
+                </div>
+                <div class="ticker"><span>♪ ARIANA GRANDE — HATE THAT I MADE YOU LOVE ME · SPOTIFY · 1:42 / 3:28</span></div>
+                <div class="tuning" id="tuning"></div>
+                <div class="viz" id="viz"></div>
+                <div class="popup" id="popup"></div>
+              </div>
+            </div>
+          </div>
+          <div class="presets" id="presets"></div>
+        </div>
+
+        <div class="side">
+          <span></span>
+          <div class="fn">
+            <button class="button" id="disp">Disp<span class="hint">view</span></button>
+            <button class="button" id="mute">Mute<span class="hint">silence</span></button>
+            <button class="button" id="ab">A · B<span class="hint">compare</span></button>
+          </div>
+          <div class="panel">
+            <div class="head"><span class="silk">tone</span><span class="silk dim">double-click = 0</span></div>
+            <div class="tone">
+              <div class="mini" data-key="bass"><div class="mark"></div></div>
+              <div class="mini" data-key="vocals"><div class="mark"></div></div>
+              <div class="mini" data-key="treble"><div class="mark"></div></div>
+              <span class="silk">bass</span><span class="silk">vocals</span><span class="silk">treble</span>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="head"><span class="silk">balance</span><span class="silk dim" id="bal-readout">center</span></div>
+            <div class="slot" id="balance"><div class="scale"><span>L</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>R</span></div><div class="thumb" id="thumb"></div></div>
+          </div>
+          <button class="button usb" id="usb"><span>Import AutoEQ<span class="hint">usb · load a profile</span></span><span class="port"></span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const HOLD_MS = 1500;
+  const sources = {
+    HP: { label: "HEADPHONES", bank: "FM1", presets: [
+      { freq: "88.4", name: "Dawn Pro", note: "measured", color: "#ff7fb6", eq: { bass: 0.8, vocals: 0.3, treble: -1.0 } },
+      { freq: "91.2", name: "Late Night", note: "soft highs", color: "#d7dde6", eq: { bass: 1.5, vocals: -0.7, treble: -3.7 } },
+      { freq: "94.7", name: "Valorant", note: "footsteps", color: "#ff5b4d", eq: { bass: -1.0, vocals: 2.0, treble: 1.5 } },
+      { freq: "99.1", name: "Podcasts", note: "voices up", color: "#5fd38a", eq: { bass: -2.0, vocals: 3.0, treble: 0.0 } },
+      { freq: "103.5", name: "Discord", note: "clearer", color: "#9b8cff", eq: { bass: -1.0, vocals: 1.5, treble: 0.5 } },
+      { freq: "107.0", name: "My Mix", note: "saved by you", color: "#ffb340", eq: { bass: 2.0, vocals: 0.0, treble: 1.5 } },
+    ] },
+    MIC: { label: "MICROPHONE", bank: "FM2", presets: [
+      { freq: "87.6", name: "Podcast Voice", note: "warm & close", color: "#ffcc2e", eq: { bass: 2.0, vocals: 2.5, treble: 1.0 } },
+      { freq: "90.3", name: "Stream", note: "punchy", color: "#4fd2ff", eq: { bass: 1.0, vocals: 3.0, treble: 2.0 } },
+      { freq: "93.9", name: "Calls", note: "clear & dry", color: "#5fd38a", eq: { bass: -3.0, vocals: 2.0, treble: 0.5 } },
+      { freq: "97.5", name: "Night Talk", note: "no hiss", color: "#d7dde6", eq: { bass: 0.0, vocals: 1.0, treble: -3.0 } },
+      { freq: "101.1", name: "Raw", note: "no effects", color: "#9aa4b1", eq: { bass: 0.0, vocals: 0.0, treble: 0.0 } },
+      { freq: "105.7", name: "My Voice", note: "saved by you", color: "#ff7fb6", eq: { bass: 1.0, vocals: 1.5, treble: 0.5 } },
+    ] },
+  };
+  const state = { source: "HP", active: 0, volume: -8, balance: 0, eq: { ...sources.HP.presets[0].eq }, view: 0, muted: false, slot: "A" };
+  const views = ["SPECTRUM", "EQ CURVE", "AUDIO"];
+  const $ = id => document.getElementById(id);
+  const signed = v => `${v > 0 ? "+" : ""}${v.toFixed(1)}`;
+  const src = () => sources[state.source];
+  const current = () => src().presets[state.active];
+
+  const SEGMENTS = { "0": "abcdef", "1": "bc", "2": "abged", "3": "abgcd", "4": "fgbc", "5": "afgcd", "6": "afgedc", "7": "abc", "8": "abcdefg", "9": "abcfgd", " ": "" };
+  const digit = (char, x) => {
+    const on = new Set(SEGMENTS[char] ?? "");
+    const w = 32, h = 58, t = 6, s = 2;
+    const P = {
+      a: [[s + t, 0], [w - s - t, 0], [w - s - 1, t / 2], [w - s - t, t], [s + t, t], [s + 1, t / 2]],
+      g: [[s + t, h / 2 - t / 2], [w - s - t, h / 2 - t / 2], [w - s - 1, h / 2], [w - s - t, h / 2 + t / 2], [s + t, h / 2 + t / 2], [s + 1, h / 2]],
+      d: [[s + t, h - t], [w - s - t, h - t], [w - s - 1, h - t / 2], [w - s - t, h], [s + t, h], [s + 1, h - t / 2]],
+      f: [[0, s + t], [t / 2, s + 1], [t, s + t], [t, h / 2 - s - t / 2], [t / 2, h / 2 - s], [0, h / 2 - s - t / 2]],
+      b: [[w - t, s + t], [w - t / 2, s + 1], [w, s + t], [w, h / 2 - s - t / 2], [w - t / 2, h / 2 - s], [w - t, h / 2 - s - t / 2]],
+      e: [[0, h / 2 + s + t / 2], [t / 2, h / 2 + s], [t, h / 2 + s + t / 2], [t, h - s - t], [t / 2, h - s - 1], [0, h - s - t]],
+      c: [[w - t, h / 2 + s + t / 2], [w - t / 2, h / 2 + s], [w, h / 2 + s + t / 2], [w, h - s - t], [w - t / 2, h - s - 1], [w - t, h - s - t]],
+    };
+    return Object.entries(P).map(([k, pts]) => `<polygon class="${on.has(k) ? "on" : "off"}" points="${pts.map(([px, py]) => `${px + x},${py}`).join(" ")}"/>`).join("");
+  };
+  const sevenSegment = text => {
+    const [whole, fraction] = text.split(".");
+    const chars = whole.padStart(3, " ") + fraction;
+    let x = 0, out = "";
+    [...chars].forEach((c, i) => {
+      out += digit(c, x);
+      x += 40;
+      if (i === 2) { out += `<rect class="on" x="${x - 4}" y="52" width="6" height="6"/>`; x += 6; }
+    });
+    return `<svg viewBox="-2 -1 ${x + 4} 60"><g transform="skewX(-6) translate(6 0)">${out}</g></svg>`;
+  };
+
+  const columns = 16, cells = 13;
+  const peaks = new Array(columns).fill(0);
+  const renderViz = () => {
+    const viz = $("viz");
+    if (views[state.view] === "SPECTRUM") {
+      viz.innerHTML = Array.from({ length: columns }, () => `<div class="col">${"<i></i>".repeat(cells)}</div>`).join("");
+      return;
+    }
+    if (views[state.view] === "EQ CURVE") {
+      const y = v => 50 - v * 3.2;
+      const { bass, vocals, treble } = state.eq;
+      viz.innerHTML = `<svg viewBox="0 0 176 100" preserveAspectRatio="none"><path d="M0 50 H176" style="opacity:.2;stroke-dasharray:2 4"/><path d="M0 ${y(bass)} C40 ${y(bass)} 55 ${y(bass)} 75 ${y((bass + vocals) / 2)} S105 ${y(vocals)} 120 ${y(vocals)} S155 ${y(treble)} 176 ${y(treble)}"/></svg>`;
+      return;
+    }
+    viz.innerHTML = `<div class="audio">${["bass", "vocals", "treble"].map(k => {
+      const v = state.eq[k];
+      const meter = Array.from({ length: 24 }, (_, i) => {
+        const pos = i - 11.5;
+        const on = (v > 0 && pos > 0 && pos <= v + 0.5) || (v < 0 && pos < 0 && pos >= v - 0.5) || Math.abs(pos) < 1;
+        return `<i class="${on ? "on" : ""}"></i>`;
+      }).join("");
+      return `<div><span>${k.toUpperCase()}</span><span class="meter">${meter}</span><span>${signed(v)}</span></div>`;
+    }).join("")}</div>`;
+  };
+
+  let popupTimer = null;
+  const popup = text => {
+    $("popup").textContent = text;
+    $("popup").classList.add("show");
+    clearTimeout(popupTimer);
+    popupTimer = setTimeout(() => $("popup").classList.remove("show"), 900);
+  };
+
+  const render = () => {
+    const p = current();
+    document.documentElement.style.setProperty("--station", p.color);
+    $("seg").innerHTML = sevenSegment(p.freq);
+    $("bank").textContent = `${src().bank} · MEM ${state.active + 1} · ${p.note.toUpperCase()}`;
+    $("name").textContent = p.name.toUpperCase();
+    $("source").textContent = src().label;
+    const edited = Object.keys(state.eq).some(k => Math.abs(state.eq[k] - p.eq[k]) > 0.05);
+    $("tag-edit").classList.toggle("on", edited);
+    $("tag-mute").classList.toggle("on", state.muted);
+    $("tag-ab").textContent = state.slot;
+    $("lcd").classList.toggle("muted", state.muted);
+    $("mute").classList.toggle("on", state.muted);
+    $("tuning").innerHTML = src().presets.map((q, i) => `<span class="${i === state.active ? "on" : ""}">${q.name.toUpperCase()}</span>`).join("");
+    const level = (state.volume + 40) / 46;
+    $("volume").style.setProperty("--level", level.toFixed(3));
+    $("tick").style.transform = `rotate(${-135 + level * 270}deg)`;
+    for (const key of ["bass", "vocals", "treble"]) {
+      const knob = document.querySelector(`.mini[data-key="${key}"]`);
+      knob.querySelector(".mark").style.transform = `rotate(${state.eq[key] / 12 * 135}deg)`;
+      knob.classList.toggle("edited", Math.abs(state.eq[key] - p.eq[key]) > 0.05);
+    }
+    $("thumb").style.left = `calc(var(--s3) + ${(state.balance + 5) / 10} * (100% - 2 * var(--s3)))`;
+    $("balance").classList.toggle("offset", state.balance !== 0);
+    $("bal-readout").textContent = state.balance === 0 ? "center" : `${state.balance < 0 ? "left" : "right"} ${Math.abs(state.balance)}`;
+    document.querySelectorAll(".preset").forEach((element, i) => {
+      const q = src().presets[i];
+      element.classList.toggle("on", i === state.active);
+      element.querySelector(".freq").textContent = q.freq;
+      element.querySelector(".label").textContent = q.name;
+    });
+    if (views[state.view] !== "SPECTRUM") renderViz();
+  };
+
+  const tune = index => {
+    state.active = (index + 6) % 6;
+    state.eq = { ...current().eq };
+    render();
+    popup(`${current().freq} ${current().name.toUpperCase()}`);
+  };
+
+  const drag = (element, onDelta) => {
+    element.addEventListener("pointerdown", event => {
+      element.setPointerCapture(event.pointerId);
+      let last = event.clientY;
+      const move = e => { onDelta(last - e.clientY); last = e.clientY; render(); };
+      element.addEventListener("pointermove", move);
+      element.addEventListener("pointerup", () => element.removeEventListener("pointermove", move), { once: true });
+    });
+    element.addEventListener("wheel", e => { e.preventDefault(); onDelta(-e.deltaY / 4); render(); }, { passive: false });
+  };
+  drag($("volume"), d => { state.volume = Math.max(-40, Math.min(6, Math.round((state.volume + d * 0.25) * 2) / 2)); popup(`VOL ${signed(state.volume)}`); });
+  document.querySelectorAll(".mini").forEach(knob => {
+    const key = knob.dataset.key;
+    drag(knob, d => { state.eq[key] = Math.max(-12, Math.min(12, Math.round((state.eq[key] + d * 0.08) * 2) / 2)); popup(`${key.toUpperCase()} ${signed(state.eq[key])}`); });
+    knob.addEventListener("dblclick", () => { state.eq[key] = 0; render(); popup(`${key.toUpperCase()} 0.0`); });
+  });
+
+  const setBalance = e => {
+    const rect = $("balance").getBoundingClientRect();
+    state.balance = Math.round(Math.min(1, Math.max(0, (e.clientX - rect.left - 12) / (rect.width - 24))) * 10 - 5);
+    render();
+    popup(state.balance === 0 ? "BAL CENTER" : `BAL ${state.balance < 0 ? "L" : "R"}${Math.abs(state.balance)}`);
+  };
+  $("balance").addEventListener("pointerdown", e => {
+    $("balance").setPointerCapture(e.pointerId);
+    setBalance(e);
+    $("balance").addEventListener("pointermove", setBalance);
+    $("balance").addEventListener("pointerup", () => $("balance").removeEventListener("pointermove", setBalance), { once: true });
+  });
+  $("balance").addEventListener("dblclick", () => { state.balance = 0; render(); popup("BAL CENTER"); });
+
+  document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => tune(state.active + Number(b.dataset.step))));
+  $("src").addEventListener("click", () => { state.source = state.source === "HP" ? "MIC" : "HP"; tune(0); popup(src().label); });
+  $("disp").addEventListener("click", () => { state.view = (state.view + 1) % views.length; renderViz(); popup(views[state.view]); });
+  $("mute").addEventListener("click", () => { state.muted = !state.muted; render(); popup(state.muted ? "MUTE" : "MUTE OFF"); });
+  $("ab").addEventListener("click", () => { state.slot = state.slot === "A" ? "B" : "A"; render(); popup(`SETTING ${state.slot}`); });
+  $("usb").addEventListener("click", () => popup("INSERT AUTOEQ FILE"));
+  $("compact").addEventListener("click", () => { $("face").classList.toggle("compact"); $("compact").classList.toggle("on"); });
+
+  for (let index = 0; index < 6; index++) {
+    const button = document.createElement("button");
+    button.className = "button preset";
+    button.innerHTML = `<div class="fill"></div><span class="top"><span class="num">${index + 1}</span><span class="freq"></span></span><span class="label"></span>`;
+    const fill = button.querySelector(".fill");
+    let start = 0, saved = false, frame = null;
+    const step = () => {
+      const progress = Math.min(1, (performance.now() - start) / HOLD_MS);
+      fill.style.width = `${progress * 100}%`;
+      if (progress >= 1) {
+        saved = true;
+        src().presets[index].eq = { ...state.eq };
+        state.active = index;
+        render();
+        popup(`★ MEM ${index + 1} STORED`);
+        return;
+      }
+      frame = requestAnimationFrame(step);
+    };
+    button.title = "Press to tune · hold to store the current sound";
+    button.addEventListener("pointerdown", () => { start = performance.now(); saved = false; frame = requestAnimationFrame(step); });
+    button.addEventListener("pointerup", () => { cancelAnimationFrame(frame); fill.style.width = "0"; if (start && !saved) tune(index); start = 0; });
+    button.addEventListener("pointerleave", () => { cancelAnimationFrame(frame); fill.style.width = "0"; start = 0; });
+    $("presets").appendChild(button);
+  }
+
+  let t = 0;
+  const animate = () => {
+    t += 0.05;
+    const now = new Date();
+    $("clock").textContent = `${String(now.getHours()).padStart(2, "0")}${now.getSeconds() % 2 ? ":" : " "}${String(now.getMinutes()).padStart(2, "0")}`;
+    if (views[state.view] === "SPECTRUM") {
+      $("viz").querySelectorAll(".col").forEach((col, i) => {
+        const band = i / columns;
+        const tilt = band < 0.3 ? state.eq.bass : band < 0.65 ? state.eq.vocals : state.eq.treble;
+        const energy = state.muted ? 0 : (0.3 + 0.45 * Math.abs(Math.sin(t * (1.1 + band * 2.4) + i * 0.8))) * (1 - band * 0.35) * Math.pow(10, tilt / 30);
+        const lit = Math.max(1, Math.min(cells, Math.round(energy * cells)));
+        peaks[i] = Math.max(lit, peaks[i] - 0.15);
+        col.querySelectorAll("i").forEach((cell, j) => { cell.className = j < lit ? "on" : (j === Math.round(peaks[i]) ? "peak" : ""); });
+      });
+    }
+    requestAnimationFrame(animate);
+  };
+
+  const fit = () => {
+    const scale = Math.min(1, (innerWidth - 16) / 1248, (innerHeight - 16) / 400);
+    $("stage").style.transform = `translate(-50%, -50%) scale(${scale})`;
+  };
+  addEventListener("resize", fit);
+  fit();
+
+  const params = new URLSearchParams(location.search);
+  if (params.get("source") === "MIC") state.source = "MIC";
+  if (params.has("press")) state.active = Number(params.get("press"));
+  state.eq = { ...current().eq };
+  if (params.has("view")) state.view = Number(params.get("view"));
+  if (params.has("balance")) state.balance = Number(params.get("balance"));
+  if (params.has("edited")) state.eq.bass += 3;
+  if (params.has("mute")) state.muted = true;
+  renderViz();
+  render();
+  animate();
+</script>
+</body>
+</html>
