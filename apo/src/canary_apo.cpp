@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cwchar>
+#include <initializer_list>
 #include <span>
 
 #include "canary/biquad.h"
@@ -43,18 +44,20 @@ void logLine(const void* instance, const char* format, ...)
     int length = std::snprintf(line, sizeof(line), "%02d:%02d:%02d.%03d pid=%lu apo=%p %s\r\n", now.wHour, now.wMinute,
                                now.wSecond, now.wMilliseconds, GetCurrentProcessId(), instance, message);
 
-    wchar_t path[MAX_PATH];
-    if (ExpandEnvironmentStringsW(L"%ProgramData%\\CanaryEQ\\apo-log.txt", path, MAX_PATH) == 0) {
-        return;
+    for (const wchar_t* location : {L"%ProgramData%\\CanaryEQ\\apo-log.txt", L"%TEMP%\\canary-apo-log.txt"}) {
+        wchar_t path[MAX_PATH];
+        if (ExpandEnvironmentStringsW(location, path, MAX_PATH) == 0) {
+            continue;
+        }
+        HANDLE file = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+                                  FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (file == INVALID_HANDLE_VALUE) {
+            continue;
+        }
+        DWORD written = 0;
+        WriteFile(file, line, static_cast<DWORD>(std::max(length, 0)), &written, nullptr);
+        CloseHandle(file);
     }
-    HANDLE file = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
-                              FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) {
-        return;
-    }
-    DWORD written = 0;
-    WriteFile(file, line, static_cast<DWORD>(std::max(length, 0)), &written, nullptr);
-    CloseHandle(file);
 }
 
 const char* describe(IAudioMediaType* type, char* buffer, std::size_t size)
@@ -309,9 +312,22 @@ CoCreatableClass(CanaryApo);
 
 }
 
+BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
+{
+    if (reason == DLL_PROCESS_ATTACH) {
+        canary::logLine(nullptr, "dll loaded");
+    }
+    else if (reason == DLL_PROCESS_DETACH) {
+        canary::logLine(nullptr, "dll unloaded");
+    }
+    return TRUE;
+}
+
 STDAPI DllGetClassObject(REFCLSID clsid, REFIID iid, void** object)
 {
-    return Microsoft::WRL::Module<Microsoft::WRL::InProc>::GetModule().GetClassObject(clsid, iid, object);
+    HRESULT result = Microsoft::WRL::Module<Microsoft::WRL::InProc>::GetModule().GetClassObject(clsid, iid, object);
+    canary::logLine(nullptr, "DllGetClassObject -> 0x%08lX", static_cast<unsigned long>(result));
+    return result;
 }
 
 STDAPI DllCanUnloadNow()
