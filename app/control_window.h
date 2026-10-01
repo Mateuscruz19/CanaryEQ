@@ -1,14 +1,15 @@
 #pragma once
 
-#include <functional>
+#include <string>
+
+#include "control_bridge.h"
 
 namespace canary {
 
 struct ControlWindowOptions {
     float initialGainDecibels = 0.0f;
-    std::function<void(float)> onGainChanged;
-    std::function<void(float)> onBalanceChanged;
-    std::function<void(int, float)> onEqChanged;
+    ControlHandlers handlers;
+    std::string automationScript;
 };
 
 void runControlWindow(const ControlWindowOptions& options);

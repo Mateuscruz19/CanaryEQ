@@ -2,10 +2,9 @@
 
 #include <webview/webview.h>
 
-#include <cstdlib>
 #include <format>
 #include <string>
-#include <utility>
+#include <string_view>
 
 namespace canary {
 
@@ -158,19 +157,6 @@ constexpr const char* kHtml = R"html(<!doctype html>
 </html>
 )html";
 
-float parseFirstNumber(const std::string& request)
-{
-    return std::strtof(request.c_str() + 1, nullptr);
-}
-
-std::pair<int, float> parseIndexAndNumber(const std::string& request)
-{
-    char* end = nullptr;
-    long index = std::strtol(request.c_str() + 1, &end, 10);
-    float value = std::strtof(end + 1, nullptr);
-    return {static_cast<int>(index), value};
-}
-
 }
 
 void runControlWindow(const ControlWindowOptions& options)
@@ -178,20 +164,22 @@ void runControlWindow(const ControlWindowOptions& options)
     webview::webview window(false, nullptr);
     window.set_title("CanaryEQ");
     window.set_size(440, 640, WEBVIEW_HINT_FIXED);
-    window.bind("setGain", [&options](const std::string& request) -> std::string {
-        options.onGainChanged(parseFirstNumber(request));
+
+    for (std::string_view name : kControlNames) {
+        window.bind(std::string(name), [&options, name](const std::string& request) -> std::string {
+            dispatchControl(options.handlers, name, request);
+            return "null";
+        });
+    }
+    window.bind("closeWindow", [&window](const std::string&) -> std::string {
+        window.terminate();
         return "null";
     });
-    window.bind("setBalance", [&options](const std::string& request) -> std::string {
-        options.onBalanceChanged(parseFirstNumber(request));
-        return "null";
-    });
-    window.bind("setEq", [&options](const std::string& request) -> std::string {
-        auto [band, decibels] = parseIndexAndNumber(request);
-        options.onEqChanged(band, decibels);
-        return "null";
-    });
+
     window.init(std::format("window.initialGain = {};", options.initialGainDecibels));
+    if (!options.automationScript.empty()) {
+        window.init(options.automationScript);
+    }
     window.set_html(kHtml);
     window.run();
 }

@@ -46,14 +46,14 @@ int main(int argc, char** argv)
     try {
         canary::runControlWindow({
             .initialGainDecibels = gainDecibels,
-            .onGainChanged = [&player](float decibels) { player.setGainDecibels(decibels); },
-            .onBalanceChanged = [&player](float decibels) { player.setBalanceDecibels(decibels); },
-            .onEqChanged =
-                [&player](int band, float decibels) {
-                    if (band >= 0 && band < static_cast<int>(canary::ThreeBandEq::kBandCount)) {
+            .handlers = {
+                .onGainChanged = [&player](float decibels) { player.setGainDecibels(decibels); },
+                .onBalanceChanged = [&player](float decibels) { player.setBalanceDecibels(decibels); },
+                .onEqChanged =
+                    [&player](int band, float decibels) {
                         player.setEqDecibels(static_cast<canary::Band>(band), decibels);
-                    }
-                },
+                    },
+            },
         });
     }
     catch (const std::exception& e) {
