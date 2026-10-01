@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>CanaryEQ Logo Lab</title>
+<style>
+  :root { --page: #0b0d10; --text: #e6e9ee; --muted: #8a919c; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--page); color: var(--text); font: 13px "Segoe UI", sans-serif; padding: 16px; }
+  h1 { font-size: 16px; margin-bottom: 4px; }
+  p.lead { color: var(--muted); margin-bottom: 18px; }
+  .variant { margin-bottom: 28px; }
+  .variant h2 { font-size: 14px; margin-bottom: 10px; }
+  .variant h2 small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .hero { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .hero img { width: 160px; height: 160px; }
+  .surfaces { display: flex; gap: 10px; flex-wrap: wrap; }
+  .surface { border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 12px; }
+  .surface span { font-size: 11px; }
+  .dark { background: #202020; color: #c9c9c9; }
+  .light { background: #f3f3f3; color: #444; }
+  .app { background: linear-gradient(180deg, #e9edf2, #aab2bd); color: #22303f; }
+  .navy { background: #0b1e3a; color: #b8c6d8; }
+  .s64 { width: 64px; height: 64px; }
+  .s32 { width: 32px; height: 32px; }
+  .s16 { width: 16px; height: 16px; }
+  .pixel { image-rendering: pixelated; }
+  .zoom { display: flex; gap: 10px; align-items: end; margin-top: 10px; color: var(--muted); font-size: 11px; }
+  .zoom canvas { width: 96px; height: 96px; image-rendering: pixelated; background: #202020; border-radius: 6px; }
+</style>
+</head>
+<body>
+<h1>CanaryEQ · laboratório de logo</h1>
+<p class="lead">Cada versão em 64, 32 e 16 px sobre fundos reais. Os quadrados ampliados embaixo mostram os pixels de verdade do 16 e do 32.</p>
+<div id="variants"></div>
+<script>
+  const variants = [
+    { file: "a-vinyl.svg", name: "A · C de vinil", note: "anel grosso + 1 sulco + ponto" },
+    { file: "b-scream.svg", name: "B · C com grito", note: "ondas saindo pela abertura" },
+    { file: "c-singing.svg", name: "C · C cantando pra cima", note: "abertura girada, foge do Pac-Man" },
+  ];
+  const surfaces = [
+    ["dark", "barra de tarefas"],
+    ["light", "Windows claro"],
+    ["app", "janela do app"],
+    ["navy", "site / marinho"],
+  ];
+  const root = document.getElementById("variants");
+  for (const variant of variants) {
+    const section = document.createElement("section");
+    section.className = "variant";
+    section.innerHTML = `
+      <h2>${variant.name}<small>${variant.note}</small></h2>
+      <div class="hero"><img src="${variant.file}" alt="${variant.name}"></div>
+      <div class="surfaces">
+        ${surfaces.map(([cls, label]) => `
+          <div class="surface ${cls}">
+            <img class="s64" src="${variant.file}" alt="">
+            <img class="s32" src="${variant.file}" alt="">
+            <img class="s16" src="${variant.file}" alt="">
+            <span>${label}</span>
+          </div>`).join("")}
+      </div>
+      <div class="zoom"></div>`;
+    root.appendChild(section);
+
+    const zoom = section.querySelector(".zoom");
+    const image = new Image();
+    image.onload = () => {
+      for (const size of [16, 32]) {
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#202020";
+        context.fillRect(0, 0, size, size);
+        context.drawImage(image, 0, 0, size, size);
+        const label = document.createElement("div");
+        label.append(canvas, document.createTextNode(` ${size} px`));
+        zoom.appendChild(label);
+      }
+    };
+    image.src = variant.file;
+  }
+</script>
+</body>
+</html>
