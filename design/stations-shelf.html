@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>CanaryEQ Stations Shelf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy-0: #050c18;
+    --navy-1: #0b1a30;
+    --navy-2: #132a4a;
+    --line: #24406a;
+    --text: #e8eef7;
+    --muted: #7f93ad;
+    --station: #d7dde6;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 0%, #1d3a63, var(--navy-0) 70%);
+    color: var(--text);
+    font-family: "Segoe UI", sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .stage { position: absolute; left: 50%; top: 50%; width: 980px; height: 620px; transform: translate(-50%, -50%); }
+
+  .window {
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    background: linear-gradient(180deg, var(--navy-2), var(--navy-1) 30%, var(--navy-0));
+    box-shadow: 0 0 0 1px #3a5a88, 0 30px 70px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.15);
+    padding: 18px 22px;
+  }
+
+  .lcd {
+    height: 150px;
+    border-radius: 14px;
+    padding: 16px 22px;
+    background:
+      radial-gradient(circle, rgba(255,255,255,.05) 0 1px, transparent 1.3px) 0 0 / 4px 4px,
+      radial-gradient(ellipse at 30% 0%, color-mix(in srgb, var(--station) 16%, #0c1626), #060b14 75%);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--station) 45%, #1d3556), inset 0 2px 12px rgba(0,0,0,.7);
+    font-family: "Share Tech Mono", monospace;
+    color: var(--station);
+    text-shadow: 0 0 10px color-mix(in srgb, var(--station) 60%, transparent);
+    transition: color .5s, box-shadow .5s, background .5s;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 20px;
+    align-items: center;
+  }
+  .lcd .meta { font-size: 11px; color: color-mix(in srgb, var(--station) 45%, #3c4d63); text-shadow: none; letter-spacing: .06em; }
+  .lcd .freq { font-size: 64px; line-height: 1; margin-top: 6px; }
+  .lcd .freq small { font-size: 16px; margin-left: 6px; opacity: .6; }
+  .lcd .name { font-size: 20px; margin-top: 4px; letter-spacing: .08em; }
+  .lcd svg { width: 100%; height: 100px; }
+  .lcd path { stroke: var(--station); transition: stroke .5s; filter: drop-shadow(0 0 6px var(--station)); }
+
+  .panel-title { display: flex; justify-content: space-between; align-items: baseline; margin: 22px 4px 0; }
+  .panel-title h2 { font-size: 13px; letter-spacing: .16em; }
+  .panel-title h2 span { color: var(--muted); font-weight: 400; letter-spacing: .02em; margin-left: 8px; }
+  .burn {
+    border: none;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font: 600 12px "Segoe UI", sans-serif;
+    color: #dbe9ff;
+    background: linear-gradient(180deg, #2b5d9e, #173a68);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 2px 6px rgba(0,0,0,.4);
+    cursor: pointer;
+  }
+
+  .rack {
+    position: relative;
+    margin-top: 14px;
+    height: 360px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #0a1628, #0e2038 70%, #060d18);
+    box-shadow: inset 0 0 0 1px #1d365a, inset 0 20px 40px rgba(0,0,0,.5);
+    perspective: 1400px;
+    perspective-origin: 50% 35%;
+    overflow: hidden;
+  }
+  .rack::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 46px;
+    background: linear-gradient(180deg, #c9d1dc, #8a95a5 40%, #4c5868);
+    box-shadow: 0 -2px 10px rgba(0,0,0,.6);
+  }
+  .shelf {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 46px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 6px;
+    transform-style: preserve-3d;
+    z-index: 1;
+  }
+
+  .case {
+    --w: 34px;
+    --h: 232px;
+    --d: 210px;
+    position: relative;
+    width: var(--w);
+    height: var(--h);
+    transform-style: preserve-3d;
+    transform-origin: calc(var(--w) / 2) 50% calc(var(--d) / -2);
+    transition: transform .65s cubic-bezier(.2,.8,.2,1), filter .4s;
+    cursor: pointer;
+  }
+  .case:hover:not(.selected) { transform: translateZ(26px) translateY(-6px); }
+  .shelf.has-selection .case:not(.selected) { filter: brightness(.55) saturate(.7); }
+  .case.selected { transform: translateZ(230px) translateY(-34px) rotateY(-90deg); z-index: 5; }
+
+  .face { position: absolute; top: 0; height: var(--h); backface-visibility: hidden; }
+
+  .spine {
+    left: 0;
+    width: var(--w);
+    border-radius: 2px;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.35), rgba(255,255,255,0) 30%, rgba(0,0,0,.25) 85%, rgba(255,255,255,.18)),
+      linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 55%, #05080f));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), inset 0 0 0 3px rgba(0,0,0,.25);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 0;
+    gap: 10px;
+    overflow: hidden;
+  }
+  .spine .freq { font: 11px "Share Tech Mono", monospace; color: rgba(0,0,0,.65); writing-mode: vertical-rl; transform: rotate(180deg); }
+  .spine .title { flex: 1; writing-mode: vertical-rl; transform: rotate(180deg); font: 700 13px "Segoe UI", sans-serif; letter-spacing: .06em; color: #0b1220; text-shadow: 0 1px 0 rgba(255,255,255,.35); white-space: nowrap; }
+  .spine img { width: 22px; height: 22px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
+  .spine.cdr { background: linear-gradient(90deg, #ffffff, #e9edf2 40%, #c9d0da); }
+  .spine.cdr .title { font: 15px "Permanent Marker", cursive; color: #1b2a8a; letter-spacing: 0; text-shadow: none; }
+
+  .cover {
+    left: var(--w);
+    width: var(--d);
+    transform-origin: left center;
+    transform: rotateY(90deg);
+    border-radius: 3px;
+    background:
+      linear-gradient(115deg, rgba(255,255,255,.45) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,0) 70%, rgba(255,255,255,.12) 100%),
+      linear-gradient(160deg, color-mix(in srgb, var(--c) 85%, #fff), color-mix(in srgb, var(--c) 45%, #050a14));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.4), inset 10px 0 0 rgba(255,255,255,.12), inset 11px 0 0 rgba(0,0,0,.25);
+    padding: 16px 16px 16px 24px;
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    color: #0b1220;
+  }
+  .cover .top { display: flex; justify-content: space-between; align-items: center; font: 12px "Share Tech Mono", monospace; }
+  .cover .top img { width: 26px; height: 26px; }
+  .cover svg { width: 100%; height: 70px; align-self: center; }
+  .cover svg path { fill: none; stroke: #0b1220; stroke-width: 3; stroke-linecap: round; opacity: .75; }
+  .cover h3 { font-size: 22px; line-height: 1.1; }
+  .cover p { font-size: 12px; opacity: .75; margin-top: 4px; }
+  .cover.cdr { background: linear-gradient(160deg, #ffffff, #dfe5ec); }
+  .cover.cdr h3 { font: 26px "Permanent Marker", cursive; color: #1b2a8a; }
+
+  .back { left: 0; width: var(--d); transform-origin: left center; transform: rotateY(-90deg) translateX(calc(var(--d) * -1)); background: linear-gradient(160deg, #1b2537, #0c121d); }
+  .top-face { left: 0; width: var(--w); height: var(--d); transform-origin: top center; transform: rotateX(-90deg); background: linear-gradient(90deg, color-mix(in srgb, var(--c) 70%, #fff), color-mix(in srgb, var(--c) 40%, #000)); }
+
+  .hint { position: absolute; left: 0; right: 0; bottom: 12px; text-align: center; font-size: 11px; color: #c8d2df; z-index: 2; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="window">
+    <div class="lcd" id="lcd">
+      <div>
+        <div class="meta">HEADPHONES · MOONDROP DAWN PRO · 48 KHZ</div>
+        <div class="freq" id="lcd-freq">88.4<small>MHz</small></div>
+        <div class="name" id="lcd-name">DAWN PRO</div>
+      </div>
+      <svg viewBox="0 0 400 100" preserveAspectRatio="none"><path id="lcd-curve" fill="none" stroke-width="3"/></svg>
+    </div>
+
+    <div class="panel-title">
+      <h2>STATIONS<span>click a CD to load it</span></h2>
+      <button class="burn" id="burn">+ Burn current as station</button>
+    </div>
+
+    <div class="rack">
+      <div class="shelf" id="shelf"></div>
+      <div class="hint">sua coleção de sons · clique numa caixinha · clique de novo pra guardar</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const icon = "logo/icon-v1.png";
+  const stations = [
+    { freq: "88.4", name: "Dawn Pro", note: "Measured for your model", color: "#ff7fb6", curve: [0, -1, 1, 0, -1, 0.5, 1, 0] },
+    { freq: "91.2", name: "Late Night", note: "Soft highs, easy on ears", color: "#d7dde6", curve: [1, 0.5, 0, 0, -0.5, -1, -1.5, -2] },
+    { freq: "94.7", name: "Valorant", note: "Footsteps forward", color: "#ff6153", curve: [-1, -1, 0, 0.5, 1.5, 2, 1, 0] },
+    { freq: "99.1", name: "Podcasts", note: "Voices up front", color: "#5fd38a", curve: [-2, -1, 0, 1.5, 2, 1, 0, -1] },
+    { freq: "103.5", name: "Discord", note: "Friends, clearer", color: "#9b8cff", curve: [-1, 0, 0.5, 1.5, 1, 0.5, 0, 0] },
+    { freq: "107.0", name: "My Mix", note: "Saved by you · Tue", color: "#4fd2ff", curve: [2, 1.5, 0.5, 0, 0, 0.5, 1, 1.5] },
+  ];
+
+  const curvePath = (values, width, height) => {
+    const step = width / (values.length - 1);
+    const y = v => height / 2 - v * (height / 6);
+    return values.reduce((d, v, i) => {
+      const x = i * step;
+      if (i === 0) return `M0 ${y(v)}`;
+      const px = (i - 1) * step;
+      return `${d} C${px + step / 2} ${y(values[i - 1])} ${x - step / 2} ${y(v)} ${x} ${y(v)}`;
+    }, "");
+  };
+
+  const shelf = document.getElementById("shelf");
+  const lcd = document.documentElement;
+  let selected = null;
+
+  const tune = station => {
+    lcd.style.setProperty("--station", station.color);
+    document.getElementById("lcd-freq").innerHTML = `${station.freq}<small>MHz</small>`;
+    document.getElementById("lcd-name").textContent = station.name.toUpperCase();
+    document.getElementById("lcd-curve").setAttribute("d", curvePath(station.curve, 400, 100));
+  };
+
+  const makeCase = (station, burned = false) => {
+    const element = document.createElement("div");
+    element.className = "case";
+    element.style.setProperty("--c", station.color);
+    element.innerHTML = `
+      <div class="face top-face"></div>
+      <div class="face back"></div>
+      <div class="face spine ${burned ? "cdr" : ""}">
+        <span class="freq">${station.freq}</span>
+        <span class="title">${station.name}</span>
+        <img src="${icon}" alt="">
+      </div>
+      <div class="face cover ${burned ? "cdr" : ""}">
+        <div class="top"><span>${station.freq} MHz</span><img src="${icon}" alt=""></div>
+        <svg viewBox="0 0 200 70" preserveAspectRatio="none"><path d="${curvePath(station.curve, 200, 70)}"/></svg>
+        <h3>${station.name}</h3>
+        <p>${station.note}</p>
+      </div>`;
+    element.addEventListener("click", () => {
+      if (selected === element) {
+        element.classList.remove("selected");
+        shelf.classList.remove("has-selection");
+        selected = null;
+        return;
+      }
+      selected?.classList.remove("selected");
+      selected = element;
+      element.classList.add("selected");
+      shelf.classList.add("has-selection");
+      tune(station);
+    });
+    return element;
+  };
+
+  stations.forEach(station => shelf.appendChild(makeCase(station)));
+  tune(stations[0]);
+
+  let burned = 0;
+  document.getElementById("burn").addEventListener("click", () => {
+    burned += 1;
+    const station = { freq: (107 + burned * 0.4).toFixed(1), name: `My Mix ${burned + 1}`, note: "Burned just now", color: "#ffbe3d", curve: [1, 0.5, 0, 0.5, 1, 0, -0.5, 0] };
+    const element = makeCase(station, true);
+    shelf.appendChild(element);
+    element.click();
+  });
+
+  const fit = () => {
+    const scale = Math.min(1, (innerWidth - 20) / 1000, (innerHeight - 20) / 640);
+    document.getElementById("stage").style.transform = `translate(-50%, -50%) scale(${scale})`;
+  };
+  addEventListener("resize", fit);
+  fit();
+
+  const preselect = new URLSearchParams(location.search).get("select");
+  if (preselect !== null) {
+    document.querySelectorAll(".case")[Number(preselect)]?.click();
+  }
+</script>
+</body>
+</html>
