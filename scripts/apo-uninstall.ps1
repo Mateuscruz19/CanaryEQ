@@ -12,18 +12,26 @@ if (-not $isAdmin) {
 
 if (Test-Path $stateFile) {
     $state = Get-Content $stateFile -Raw | ConvertFrom-Json
-    $fxKey = $state.EndpointKey
-    foreach ($entry in $state.Previous.PSObject.Properties) {
-        $name = $entry.Name
-        $previous = $entry.Value
-        if ($previous.Existed) {
-            $value = $previous.Value
-            if ($previous.Kind -eq "MultiString") { $value = [string[]]@($value) }
-            New-ItemProperty -Path $fxKey -Name $name -Value $value -PropertyType $previous.Kind -Force | Out-Null
+    $fxWritable = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(($state.EndpointKey -replace "^HKLM:\\", ""),
+        [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+        [System.Security.AccessControl.RegistryRights]"SetValue, QueryValues")
+    try {
+        foreach ($entry in $state.Previous.PSObject.Properties) {
+            $name = $entry.Name
+            $previous = $entry.Value
+            if ($previous.Existed) {
+                $value = $previous.Value
+                if ($previous.Kind -eq "MultiString") { $value = [string[]]@($value) }
+                if ($previous.Kind -eq "DWord") { $value = [int]$value }
+                $fxWritable.SetValue($name, $value, [Microsoft.Win32.RegistryValueKind]$previous.Kind)
+            }
+            else {
+                $fxWritable.DeleteValue($name, $false)
+            }
         }
-        else {
-            Remove-ItemProperty -Path $fxKey -Name $name -ErrorAction SilentlyContinue
-        }
+    }
+    finally {
+        $fxWritable.Close()
     }
     Write-Host "Restored the original effect settings of the device."
 }

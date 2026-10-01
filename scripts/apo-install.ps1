@@ -101,8 +101,18 @@ foreach ($name in $apoValues.Keys) {
     New-ItemProperty -Path $apoKey -Name $name -Value $value -PropertyType $kind -Force | Out-Null
 }
 
-foreach ($name in $touched.Keys) {
-    New-ItemProperty -Path $fxKey -Name $name -Value $touched[$name].Value -PropertyType $touched[$name].Kind -Force | Out-Null
+$fxWritable = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(($fxKey -replace "^HKLM:\\", ""),
+    [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+    [System.Security.AccessControl.RegistryRights]"SetValue, QueryValues")
+try {
+    foreach ($name in $touched.Keys) {
+        $value = $touched[$name].Value
+        if ($touched[$name].Kind -eq "MultiString") { $value = [string[]]$value }
+        $fxWritable.SetValue($name, $value, [Microsoft.Win32.RegistryValueKind]$touched[$name].Kind)
+    }
+}
+finally {
+    $fxWritable.Close()
 }
 
 [ordered]@{ EndpointKey = $fxKey; Previous = $previous } | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 $stateFile
