@@ -1,0 +1,4 @@
+LIBRARY canary_apo
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE
