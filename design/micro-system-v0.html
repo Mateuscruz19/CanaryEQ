@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>CanaryEQ Micro System v0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --station: #ff7fb6;
+    --halo: color-mix(in srgb, var(--station) 55%, transparent);
+    --body-top: #23262c;
+    --body-bottom: #111316;
+    --recess: #07080a;
+    --lcd-ground: #040507;
+    --silk: #9aa3af;
+    --silk-dim: #6b7380;
+    --legend-off: #c4cbd4;
+    --acrylic: linear-gradient(180deg, #1f4f8f 0%, #133566 45%, #0b2148 100%);
+    --chrome: linear-gradient(180deg, #f4f6f8 0%, #c9ced6 22%, #8a929d 50%, #6a717c 53%, #c9ced6 82%, #e9ecef 100%);
+    --amber: #ffb340;
+    --brand: #ffcc2e;
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+    --raise: 0 2px 0 #050607, 0 3px 6px rgba(0,0,0,.6);
+    --sink: inset 0 2px 4px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.05);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body { background: radial-gradient(ellipse at 50% 35%, #3a3e46, #15161a 65%, #0a0a0b); font-family: "Barlow Condensed", sans-serif; color: var(--legend-off); overflow: hidden; user-select: none; }
+  .stage { position: absolute; left: 50%; top: 50%; width: 1320px; transform-origin: center; }
+  .system { display: grid; grid-template-columns: 300px 680px 300px; gap: var(--s5); align-items: end; }
+
+  .speaker {
+    position: relative;
+    height: 620px;
+    border-radius: 14px 14px 10px 10px;
+    padding: var(--s6) var(--s5);
+    background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,0) 30%, rgba(0,0,0,.25)), linear-gradient(180deg, #2a2d33, #121418);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 30px 60px rgba(0,0,0,.7);
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    justify-items: center;
+    gap: var(--s5);
+  }
+  .tweeter { width: 92px; height: 92px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #e9edf2, #8a929d 35%, #2a2e34 37%, #0d0f12 62%, #3a3f46 64%, #15171b 72%); box-shadow: 0 0 0 6px #1a1d22, 0 0 0 8px #3a3f46; }
+  .woofer {
+    position: relative;
+    width: 236px;
+    height: 236px;
+    border-radius: 50%;
+    align-self: center;
+    background: radial-gradient(circle, #15171b 58%, #2c3037 60%, #0b0c0e 70%);
+    box-shadow: 0 0 0 10px #1a1d22, 0 0 0 13px #4a5058, 0 0 calc(var(--level, 0) * 40px) color-mix(in srgb, var(--station) calc(var(--level, 0) * 70%), transparent);
+    display: grid;
+    place-items: center;
+  }
+  .cone { width: 74%; height: 74%; border-radius: 50%; background: repeating-radial-gradient(circle, #1d2025 0 6px, #16181c 6px 12px); box-shadow: inset 0 0 20px #000; display: grid; place-items: center; transform: scale(calc(1 + var(--level, 0) * .05)); }
+  .cap { width: 30%; height: 30%; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #e9edf2, #8b939e 50%, #4b525c); box-shadow: 0 2px 6px #000; }
+  .speaker .badge { font-weight: 700; font-size: 12px; letter-spacing: .3em; color: #8b95a3; }
+  .speaker .side-label { position: absolute; top: var(--s3); left: var(--s4); }
+
+  .center {
+    position: relative;
+    border-radius: 16px 16px 10px 10px;
+    padding: var(--s4) var(--s5) var(--s5);
+    background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,0) 20%), repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 1px, transparent 1px 4px), linear-gradient(180deg, var(--body-top), var(--body-bottom));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 30px 60px rgba(0,0,0,.75);
+    display: grid;
+    gap: var(--s4);
+  }
+  .silk { font-weight: 600; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--silk); }
+  .silk.dim { color: var(--silk-dim); }
+  .button { position: relative; border: none; border-radius: 4px; background: linear-gradient(180deg, #2c3037 0%, #181b20 60%, #111317 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.16), var(--raise); color: var(--legend-off); font: 600 12px "Barlow Condensed", sans-serif; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; transition: transform 70ms, box-shadow 70ms, color .5s; }
+  .button:hover { color: #fff; }
+  .button:active, .button.on { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 #050607; }
+  .button.on { color: var(--station); text-shadow: 0 0 6px var(--halo); }
+  .button .hint { display: block; font-size: 9px; letter-spacing: .14em; color: var(--silk-dim); text-shadow: none; margin-top: 2px; }
+
+  .topbar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s4); }
+  .brand { display: flex; align-items: center; gap: var(--s2); }
+  .brand img { width: 26px; height: 26px; }
+  .brand b { font-weight: 700; font-size: 15px; letter-spacing: .26em; color: #e3e8ee; }
+  .brand span { color: var(--brand); }
+  .sources { display: flex; gap: var(--s2); justify-content: center; }
+  .sources .button { padding: var(--s2) var(--s4) var(--s2) 26px; }
+  .sources .button::before { content: ""; position: absolute; left: 10px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: #2a2e34; }
+  .sources .button.on::before { background: #6dff7a; box-shadow: 0 0 6px #6dff7a; }
+  .power { width: 10px; height: 10px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 6px var(--brand); }
+
+  .acrylic { position: relative; border-radius: 10px; padding: var(--s4); background: var(--acrylic); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -2px 8px rgba(0,0,0,.5), 0 0 0 2px #0a1830; display: grid; grid-template-columns: 1fr 132px 150px; gap: var(--s4); align-items: center; overflow: hidden; }
+  .acrylic::after { content: ""; position: absolute; left: -10%; right: -10%; top: 0; height: 46%; background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,0)); border-radius: 0 0 50% 50%; pointer-events: none; }
+  .acrylic .label { position: absolute; top: 6px; left: var(--s4); font-size: 9px; letter-spacing: .2em; color: #9cc2ef; font-weight: 600; z-index: 1; }
+
+  .lcd { position: relative; height: 150px; border-radius: 3px; padding: var(--s2) var(--s3); background: radial-gradient(circle, rgba(0,0,0,.5) 0 .8px, transparent 1.2px) 0 0 / 3px 3px, linear-gradient(180deg, color-mix(in srgb, var(--station) 8%, var(--lcd-ground)), var(--lcd-ground) 70%); box-shadow: inset 0 3px 10px #000, 0 0 0 1px #000; color: var(--station); font-family: "DotGothic16", monospace; text-shadow: 0 0 6px var(--halo); display: grid; grid-template-rows: 14px auto 1fr 14px; gap: 2px; overflow: hidden; margin-top: 8px; transition: color .5s; }
+  .lcd .tags { display: flex; gap: 6px; font-size: 10px; }
+  .lcd .tags span { opacity: .14; text-shadow: none; }
+  .lcd .tags span.on { opacity: 1; }
+  .lcd .tags .box { border: 1px solid currentColor; border-radius: 2px; padding: 0 3px; line-height: 12px; }
+  .lcd .row { display: flex; align-items: center; gap: var(--s3); }
+  .seg svg { height: 44px; display: block; }
+  .seg .off { fill: color-mix(in srgb, var(--station) 8%, transparent); }
+  .seg .on { fill: var(--station); }
+  .lcd .names { min-width: 0; }
+  .lcd .bank { font-size: 10px; opacity: .7; letter-spacing: .06em; white-space: nowrap; }
+  .lcd .name { font-size: 20px; letter-spacing: .08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lcd .spectrum { display: flex; align-items: flex-end; gap: 2px; }
+  .lcd .spectrum i { flex: 1; background: repeating-linear-gradient(0deg, var(--station) 0 3px, transparent 3px 5px); }
+  .lcd .tuning { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; font-size: 9px; }
+  .lcd .tuning span { text-align: center; opacity: .25; border-top: 2px solid currentColor; white-space: nowrap; overflow: hidden; }
+  .lcd .tuning span.on { opacity: 1; }
+  .popup { position: absolute; inset: 0; display: grid; place-items: center; background: var(--lcd-ground); font-size: 30px; letter-spacing: .12em; opacity: 0; transition: opacity 120ms; pointer-events: none; }
+  .popup.show { opacity: 1; }
+
+  .vu { position: relative; width: 132px; height: 132px; border-radius: 50%; background: radial-gradient(circle at 50% 60%, #ffe1a3, var(--amber) 55%, #b86a10); box-shadow: 0 0 22px rgba(255,179,64,.55), inset 0 0 12px rgba(120,60,0,.6), 0 0 0 5px #0a1830, 0 0 0 7px #8a929d; overflow: hidden; }
+  .vu svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .vu .needle { transform-origin: 66px 100px; transition: transform .1s; }
+  .vu::after { content: ""; position: absolute; inset: 0 0 50% 0; background: linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0)); border-radius: 50% 50% 0 0; }
+
+  .volume { position: relative; display: grid; place-items: center; gap: var(--s1); }
+  .halo { position: relative; width: 140px; height: 140px; border-radius: 50%; background: conic-gradient(from 225deg, var(--station) calc(var(--level) * 270deg), rgba(0,0,0,.4) 0 270deg, transparent 0); filter: drop-shadow(0 0 8px var(--halo)); display: grid; place-items: center; cursor: ns-resize; }
+  .halo::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: #06101f; }
+  .knob { position: relative; width: 116px; height: 116px; border-radius: 50%; background: repeating-conic-gradient(rgba(0,0,0,.22) 0 2deg, transparent 2deg 4deg), conic-gradient(#f7f8fa, #8b939e, #eff1f4, #6e7682, #f7f8fa, #8f97a3, #eceef2, #7a828e, #f7f8fa); box-shadow: 0 6px 12px rgba(0,0,0,.75), inset 0 0 0 2px rgba(255,255,255,.45); }
+  .knob::before { content: ""; position: absolute; inset: 22px; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #fbfcfd, #b4bcc6 60%, #8b939e); box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+  .knob .tick { position: absolute; left: 50%; top: 14px; width: 4px; height: 12px; margin-left: -2px; border-radius: 2px; background: var(--station); box-shadow: 0 0 6px var(--station); transform-origin: 2px 44px; z-index: 1; }
+  .volume .silk { color: #9cc2ef; }
+
+  .navigation { display: grid; grid-template-columns: 1fr auto; gap: var(--s4); align-items: end; }
+  .navigation .head { display: flex; justify-content: space-between; margin-bottom: var(--s2); }
+  .presets { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--s2); }
+  .preset { height: 52px; padding: var(--s1) var(--s2); text-align: left; overflow: hidden; display: grid; align-content: center; }
+  .preset .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .preset .num { font-size: 15px; font-weight: 700; color: #e8edf3; }
+  .preset .freq { font-size: 10px; color: var(--silk-dim); }
+  .preset .label { font-size: 11px; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .preset.on .num { color: var(--station); }
+  .preset.on::after { content: ""; position: absolute; left: var(--s2); right: var(--s2); bottom: 3px; height: 2px; background: var(--station); box-shadow: 0 0 6px var(--station); }
+  .preset .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: color-mix(in srgb, var(--station) 25%, transparent); }
+  .preset > * { position: relative; }
+  .tone { display: grid; grid-template-columns: repeat(3, 44px); gap: var(--s3); justify-items: center; }
+  .mini { position: relative; width: 40px; height: 40px; border-radius: 50%; background: repeating-conic-gradient(#30353d 0 5deg, #16181c 5deg 10deg); box-shadow: 0 3px 6px rgba(0,0,0,.75), inset 0 0 0 1px #464c55; cursor: ns-resize; }
+  .mini::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #444b55, #121418); }
+  .mini i { position: absolute; left: 50%; top: 5px; width: 3px; height: 11px; margin-left: -1.5px; border-radius: 2px; background: #e6eaef; transform-origin: 1.5px 15px; }
+  .mini.edited i { background: var(--station); box-shadow: 0 0 5px var(--station); }
+
+  .balance-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s3); }
+  .slot { position: relative; height: 20px; border-radius: 2px; background: var(--recess); box-shadow: var(--sink); cursor: ew-resize; }
+  .slot .scale { position: absolute; inset: 0 var(--s3); display: flex; justify-content: space-between; align-items: center; font-size: 9px; font-weight: 600; color: var(--silk-dim); }
+  .slot .thumb { position: absolute; top: -3px; width: 18px; height: 26px; margin-left: -9px; border-radius: 2px; background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(215,224,235,.18) 50%, rgba(255,255,255,.32)); box-shadow: 0 2px 5px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,255,255,.5); }
+
+  .decks { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+  .deck { position: relative; height: 104px; border-radius: 6px; padding: var(--s2) var(--s3); background: linear-gradient(180deg, #1b1e23, #0e1013); box-shadow: var(--sink); display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto 1fr; column-gap: var(--s3); perspective: 600px; }
+  .deck .title { font-weight: 700; font-size: 11px; letter-spacing: .18em; color: #d5dbe3; }
+  .deck .title small { display: block; font-size: 9px; font-weight: 600; letter-spacing: .14em; color: var(--silk-dim); }
+  .door { grid-column: 1; grid-row: 2; position: relative; margin-top: var(--s1); border-radius: 4px; background: linear-gradient(180deg, rgba(160,190,230,.22), rgba(40,60,90,.25)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), inset 0 2px 6px rgba(0,0,0,.6); transform-origin: bottom center; transition: transform .45s cubic-bezier(.3,1.3,.5,1); display: flex; align-items: center; justify-content: center; gap: 46px; overflow: hidden; }
+  .door::after { content: ""; position: absolute; inset: 0 0 55% 0; background: linear-gradient(180deg, rgba(255,255,255,.18), transparent); }
+  .reel { width: 34px; height: 34px; border-radius: 50%; background: repeating-conic-gradient(#e9edf2 0 20deg, transparent 20deg 60deg), radial-gradient(circle, #e9edf2 0 5px, #2a2e34 6px 15px, #111 16px); }
+  .deck.open .door { transform: rotateX(-78deg); }
+  .deck.running .reel { animation: spin 1.6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .deck .eject { grid-column: 2; grid-row: 1 / 3; width: 72px; align-self: stretch; }
+
+  .drawer { overflow: hidden; max-height: 0; transition: max-height .55s cubic-bezier(.2,.8,.2,1); }
+  .drawer.show { max-height: 340px; }
+  .drawer-inner { margin-top: var(--s1); padding: var(--s4); border-radius: 8px; background: rgba(0,0,0,.28); box-shadow: var(--sink); }
+  .eq-bank { display: grid; grid-template-columns: 44px repeat(10, 1fr); gap: var(--s2); align-items: end; }
+  .fader { display: grid; justify-items: center; gap: var(--s1); }
+  .fader output { font: 11px "DotGothic16", monospace; color: var(--legend-off); }
+  .track { position: relative; width: 30px; height: 130px; }
+  .track::before { content: ""; position: absolute; left: 50%; top: 4px; bottom: 4px; width: 6px; margin-left: -3px; border-radius: 3px; background: var(--recess); box-shadow: var(--sink); }
+  .track .zero { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #6b7380; }
+  .fcap { position: absolute; left: 50%; width: 30px; height: 16px; margin: -8px 0 0 -15px; border-radius: 3px; background: linear-gradient(180deg, #f2f4f7, #aab2bd 45%, #6e7682 50%, #c7cdd5); box-shadow: 0 3px 5px rgba(0,0,0,.7); }
+  .fcap::after { content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 2px; margin-top: -1px; background: #1b1e23; }
+  .fader.sel .fcap::after { background: var(--station); box-shadow: 0 0 4px var(--station); }
+  .fader.sel .silk { color: var(--station); }
+  .mic-panel { display: grid; grid-template-columns: 150px 1fr; gap: var(--s4); align-items: center; }
+  .onair { padding: var(--s3) 0; border-radius: 6px; text-align: center; font: 700 24px "Barlow Condensed", sans-serif; letter-spacing: .26em; color: #fff3ef; background: radial-gradient(ellipse at 50% 30%, #ff8a7d, #ff4a3d 45%, #9a1b12); box-shadow: 0 0 24px rgba(255,74,61,.55), inset 0 2px 0 rgba(255,255,255,.4); cursor: pointer; }
+  .onair.off { background: #2a1210; color: #6d3a33; box-shadow: inset 0 2px 0 rgba(255,255,255,.08); }
+  .modules { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--s2); }
+  .module { display: grid; justify-items: center; gap: var(--s1); padding: var(--s2); border-radius: 4px; background: rgba(0,0,0,.25); }
+  .module b { font-size: 11px; letter-spacing: .12em; color: #dfe5ec; }
+  .module small { font-size: 9px; color: var(--silk-dim); text-align: center; line-height: 1.15; min-height: 20px; }
+  .lever { position: relative; width: 24px; height: 38px; border-radius: 3px; background: var(--recess); box-shadow: var(--sink); cursor: pointer; }
+  .lever::before { content: ""; position: absolute; left: 50%; top: 4px; width: 9px; height: 20px; margin-left: -4.5px; border-radius: 4px; background: linear-gradient(90deg, #8d96a2, #f4f6f8 45%, #9aa2ad); box-shadow: 0 2px 3px rgba(0,0,0,.7); transition: transform .12s; }
+  .lever:not(.on)::before { transform: translateY(10px); }
+  .led { width: 7px; height: 7px; border-radius: 50%; background: #2a2d32; }
+  .module.on .led { background: #ff4a3d; box-shadow: 0 0 6px #ff4a3d; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="system">
+    <div class="speaker"><span class="silk side-label">L</span><div class="tweeter"></div><div class="woofer" id="woofer-l"><div class="cone"><div class="cap"></div></div></div><span class="badge">CANARY</span></div>
+
+    <div class="center">
+      <div class="topbar">
+        <span class="brand"><img src="logo/icon-v1.png" alt=""><b>CANARY<span>EQ</span></b></span>
+        <div class="sources">
+          <button class="button on" id="src-hp">Headphones</button>
+          <button class="button" id="src-mic">Microphone</button>
+        </div>
+        <span class="power" title="on"></span>
+      </div>
+
+      <div class="acrylic">
+        <span class="label">MS-26 · DIGITAL SOUND TUNER</span>
+        <div class="lcd" id="lcd">
+          <div class="tags"><span class="on" id="lcd-source">HEADPHONES</span><span class="box on">EQ</span><span class="box on">LIM</span><span class="box" id="tag-edit">EDIT</span></div>
+          <div class="row"><div class="seg" id="seg"></div><div class="names"><div class="bank" id="bank"></div><div class="name" id="name"></div></div></div>
+          <div class="spectrum" id="spectrum"></div>
+          <div class="tuning" id="tuning"></div>
+          <div class="popup" id="popup"></div>
+        </div>
+        <div class="vu"><svg viewBox="0 0 132 132">
+          <path d="M22 92 A50 50 0 0 1 110 92" fill="none" stroke="#5a2e05" stroke-width="1.5"/>
+          <path d="M92 52 A50 50 0 0 1 110 92" fill="none" stroke="#b5260f" stroke-width="4"/>
+          <text x="30" y="80" font-size="8" fill="#5a2e05" font-family="Barlow Condensed">-20</text>
+          <text x="60" y="44" font-size="8" fill="#5a2e05" font-family="Barlow Condensed">-5</text>
+          <text x="96" y="58" font-size="8" fill="#b5260f" font-family="Barlow Condensed">0</text>
+          <text x="54" y="114" font-size="9" fill="#5a2e05" font-family="Barlow Condensed" letter-spacing="2">VU</text>
+          <line class="needle" id="needle" x1="66" y1="100" x2="66" y2="40" stroke="#1a0c02" stroke-width="2"/>
+          <circle cx="66" cy="100" r="5" fill="#1a0c02"/>
+        </svg></div>
+        <div class="volume">
+          <div class="halo" id="volume"><div class="knob"><div class="tick" id="tick"></div></div></div>
+          <span class="silk">volume</span>
+        </div>
+      </div>
+
+      <div class="navigation">
+        <div>
+          <div class="head"><span class="silk">sound navigation</span><span class="silk dim">press = tune · hold = save</span></div>
+          <div class="presets" id="presets"></div>
+        </div>
+        <div>
+          <div class="head"><span class="silk">tone</span></div>
+          <div class="tone">
+            <div class="mini" data-key="bass"><i></i></div><div class="mini" data-key="vocals"><i></i></div><div class="mini" data-key="treble"><i></i></div>
+            <span class="silk">bass</span><span class="silk">vocals</span><span class="silk">treble</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="balance-row"><span class="silk">balance</span><div class="slot" id="balance"><div class="scale"><span>L</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>R</span></div><div class="thumb" id="thumb"></div></div><span class="silk dim" id="bal-readout">center</span></div>
+
+      <div class="decks">
+        <div class="deck" id="deck-eq"><span class="title">DECK 1 · ADVANCED EQ<small>10 bands · inspector · dynamics</small></span><button class="button eject" id="eject-eq">▲<span class="hint">eject</span></button><div class="door"><span class="reel"></span><span class="reel"></span></div></div>
+        <div class="deck" id="deck-mic"><span class="title">DECK 2 · MICROPHONE<small>record · noise · gate · comp</small></span><button class="button eject" id="eject-mic">▲<span class="hint">eject</span></button><div class="door"><span class="reel"></span><span class="reel"></span></div></div>
+      </div>
+
+      <div class="drawer" id="drawer-eq"><div class="drawer-inner"><div class="eq-bank" id="eq-bank"></div></div></div>
+      <div class="drawer" id="drawer-mic"><div class="drawer-inner mic-panel"><div class="onair" id="onair">ON AIR</div><div class="modules" id="modules"></div></div></div>
+    </div>
+
+    <div class="speaker"><span class="silk side-label">R</span><div class="tweeter"></div><div class="woofer" id="woofer-r"><div class="cone"><div class="cap"></div></div></div><span class="badge">CANARY</span></div>
+  </div>
+</div>
+
+<script>
+  const HOLD_MS = 1500;
+  const sources = {
+    HP: { label: "HEADPHONES", bank: "FM1", presets: [
+      { freq: "88.4", name: "Dawn Pro", note: "measured", color: "#ff7fb6", eq: { bass: 0.8, vocals: 0.3, treble: -1.0 } },
+      { freq: "91.2", name: "Late Night", note: "soft highs", color: "#d7dde6", eq: { bass: 1.5, vocals: -0.7, treble: -3.7 } },
+      { freq: "94.7", name: "Valorant", note: "footsteps", color: "#ff5b4d", eq: { bass: -1.0, vocals: 2.0, treble: 1.5 } },
+      { freq: "99.1", name: "Podcasts", note: "voices up", color: "#5fd38a", eq: { bass: -2.0, vocals: 3.0, treble: 0.0 } },
+      { freq: "103.5", name: "Discord", note: "clearer", color: "#9b8cff", eq: { bass: -1.0, vocals: 1.5, treble: 0.5 } },
+      { freq: "107.0", name: "My Mix", note: "saved by you", color: "#ffb340", eq: { bass: 2.0, vocals: 0.0, treble: 1.5 } },
+    ] },
+    MIC: { label: "MICROPHONE", bank: "FM2", presets: [
+      { freq: "87.6", name: "Podcast Voice", note: "warm & close", color: "#ffcc2e", eq: { bass: 2.0, vocals: 2.5, treble: 1.0 } },
+      { freq: "90.3", name: "Stream", note: "punchy", color: "#4fd2ff", eq: { bass: 1.0, vocals: 3.0, treble: 2.0 } },
+      { freq: "93.9", name: "Calls", note: "clear & dry", color: "#5fd38a", eq: { bass: -3.0, vocals: 2.0, treble: 0.5 } },
+      { freq: "97.5", name: "Night Talk", note: "no hiss", color: "#d7dde6", eq: { bass: 0.0, vocals: 1.0, treble: -3.0 } },
+      { freq: "101.1", name: "Raw", note: "no effects", color: "#9aa4b1", eq: { bass: 0.0, vocals: 0.0, treble: 0.0 } },
+      { freq: "105.7", name: "My Voice", note: "saved by you", color: "#ff7fb6", eq: { bass: 1.0, vocals: 1.5, treble: 0.5 } },
+    ] },
+  };
+  const state = { source: "HP", active: 0, volume: -8, balance: 0, eq: { ...sources.HP.presets[0].eq }, open: null };
+  const $ = id => document.getElementById(id);
+  const signed = v => `${v > 0 ? "+" : ""}${v.toFixed(1)}`;
+  const src = () => sources[state.source];
+  const current = () => src().presets[state.active];
+
+  const SEG = { "0": "abcdef", "1": "bc", "2": "abged", "3": "abgcd", "4": "fgbc", "5": "afgcd", "6": "afgedc", "7": "abc", "8": "abcdefg", "9": "abcfgd", " ": "" };
+  const digit = (char, x) => {
+    const on = new Set(SEG[char] ?? ""), w = 26, h = 46, t = 5, s = 2;
+    const P = {
+      a: [[s + t, 0], [w - s - t, 0], [w - s - 1, t / 2], [w - s - t, t], [s + t, t], [s + 1, t / 2]],
+      g: [[s + t, h / 2 - t / 2], [w - s - t, h / 2 - t / 2], [w - s - 1, h / 2], [w - s - t, h / 2 + t / 2], [s + t, h / 2 + t / 2], [s + 1, h / 2]],
+      d: [[s + t, h - t], [w - s - t, h - t], [w - s - 1, h - t / 2], [w - s - t, h], [s + t, h], [s + 1, h - t / 2]],
+      f: [[0, s + t], [t / 2, s + 1], [t, s + t], [t, h / 2 - s - t / 2], [t / 2, h / 2 - s], [0, h / 2 - s - t / 2]],
+      b: [[w - t, s + t], [w - t / 2, s + 1], [w, s + t], [w, h / 2 - s - t / 2], [w - t / 2, h / 2 - s], [w - t, h / 2 - s - t / 2]],
+      e: [[0, h / 2 + s + t / 2], [t / 2, h / 2 + s], [t, h / 2 + s + t / 2], [t, h - s - t], [t / 2, h - s - 1], [0, h - s - t]],
+      c: [[w - t, h / 2 + s + t / 2], [w - t / 2, h / 2 + s], [w, h / 2 + s + t / 2], [w, h - s - t], [w - t / 2, h - s - 1], [w - t, h - s - t]],
+    };
+    return Object.entries(P).map(([k, pts]) => `<polygon class="${on.has(k) ? "on" : "off"}" points="${pts.map(([a, b]) => `${a + x},${b}`).join(" ")}"/>`).join("");
+  };
+  const seven = text => {
+    const [a, b] = text.split(".");
+    const chars = a.padStart(3, " ") + b;
+    let x = 0, out = "";
+    [...chars].forEach((c, i) => { out += digit(c, x); x += 32; if (i === 2) { out += `<rect class="on" x="${x - 3}" y="41" width="5" height="5"/>`; x += 5; } });
+    return `<svg viewBox="-2 -1 ${x + 4} 48"><g transform="skewX(-6) translate(5 0)">${out}</g></svg>`;
+  };
+
+  const spectrum = Array.from({ length: 22 }, () => $("spectrum").appendChild(document.createElement("i")));
+  let popupTimer;
+  const popup = text => { $("popup").textContent = text; $("popup").classList.add("show"); clearTimeout(popupTimer); popupTimer = setTimeout(() => $("popup").classList.remove("show"), 900); };
+
+  const render = () => {
+    const p = current();
+    document.documentElement.style.setProperty("--station", p.color);
+    $("seg").innerHTML = seven(p.freq);
+    $("bank").textContent = `${src().bank} · MEM ${state.active + 1} · ${p.note.toUpperCase()}`;
+    $("name").textContent = p.name.toUpperCase();
+    $("lcd-source").textContent = src().label;
+    $("src-hp").classList.toggle("on", state.source === "HP");
+    $("src-mic").classList.toggle("on", state.source === "MIC");
+    $("tag-edit").classList.toggle("on", Object.keys(state.eq).some(k => Math.abs(state.eq[k] - p.eq[k]) > 0.05));
+    $("tuning").innerHTML = src().presets.map((q, i) => `<span class="${i === state.active ? "on" : ""}">${q.name.toUpperCase()}</span>`).join("");
+    const level = (state.volume + 40) / 46;
+    $("volume").style.setProperty("--level", level.toFixed(3));
+    $("tick").style.transform = `rotate(${-135 + level * 270}deg)`;
+    document.querySelectorAll(".mini").forEach(m => {
+      const k = m.dataset.key;
+      m.querySelector("i").style.transform = `rotate(${state.eq[k] / 12 * 135}deg)`;
+      m.classList.toggle("edited", Math.abs(state.eq[k] - p.eq[k]) > 0.05);
+    });
+    $("thumb").style.left = `calc(var(--s3) + ${(state.balance + 5) / 10} * (100% - 2 * var(--s3)))`;
+    $("bal-readout").textContent = state.balance === 0 ? "center" : `${state.balance < 0 ? "left" : "right"} ${Math.abs(state.balance)}`;
+    document.querySelectorAll(".preset").forEach((b, i) => {
+      const q = src().presets[i];
+      b.classList.toggle("on", i === state.active);
+      b.querySelector(".freq").textContent = q.freq;
+      b.querySelector(".label").textContent = q.name;
+    });
+  };
+  const tune = i => { state.active = (i + 6) % 6; state.eq = { ...current().eq }; render(); popup(`${current().freq} ${current().name.toUpperCase()}`); };
+
+  const drag = (el, fn) => {
+    el.addEventListener("pointerdown", ev => { el.setPointerCapture(ev.pointerId); let last = ev.clientY; const mv = e => { fn(last - e.clientY); last = e.clientY; render(); }; el.addEventListener("pointermove", mv); el.addEventListener("pointerup", () => el.removeEventListener("pointermove", mv), { once: true }); });
+    el.addEventListener("wheel", e => { e.preventDefault(); fn(-e.deltaY / 4); render(); }, { passive: false });
+  };
+  drag($("volume"), d => { state.volume = Math.max(-40, Math.min(6, Math.round((state.volume + d * .25) * 2) / 2)); popup(`VOL ${signed(state.volume)}`); });
+  document.querySelectorAll(".mini").forEach(m => {
+    const k = m.dataset.key;
+    drag(m, d => { state.eq[k] = Math.max(-12, Math.min(12, Math.round((state.eq[k] + d * .08) * 2) / 2)); popup(`${k.toUpperCase()} ${signed(state.eq[k])}`); });
+    m.addEventListener("dblclick", () => { state.eq[k] = 0; render(); });
+  });
+  const setBal = e => { const r = $("balance").getBoundingClientRect(); state.balance = Math.round(Math.min(1, Math.max(0, (e.clientX - r.left - 12) / (r.width - 24))) * 10 - 5); render(); popup(state.balance === 0 ? "BAL CENTER" : `BAL ${state.balance < 0 ? "L" : "R"}${Math.abs(state.balance)}`); };
+  $("balance").addEventListener("pointerdown", e => { $("balance").setPointerCapture(e.pointerId); setBal(e); $("balance").addEventListener("pointermove", setBal); $("balance").addEventListener("pointerup", () => $("balance").removeEventListener("pointermove", setBal), { once: true }); });
+  $("balance").addEventListener("dblclick", () => { state.balance = 0; render(); });
+  $("src-hp").addEventListener("click", () => { state.source = "HP"; tune(0); });
+  $("src-mic").addEventListener("click", () => { state.source = "MIC"; tune(0); });
+
+  for (let i = 0; i < 6; i++) {
+    const b = document.createElement("button");
+    b.className = "button preset";
+    b.innerHTML = `<div class="fill"></div><span class="top"><span class="num">${i + 1}</span><span class="freq"></span></span><span class="label"></span>`;
+    const fill = b.querySelector(".fill");
+    let start = 0, saved = false, frame;
+    const step = () => { const pr = Math.min(1, (performance.now() - start) / HOLD_MS); fill.style.width = `${pr * 100}%`; if (pr >= 1) { saved = true; src().presets[i].eq = { ...state.eq }; state.active = i; render(); popup(`★ MEM ${i + 1} STORED`); return; } frame = requestAnimationFrame(step); };
+    b.addEventListener("pointerdown", () => { start = performance.now(); saved = false; frame = requestAnimationFrame(step); });
+    b.addEventListener("pointerup", () => { cancelAnimationFrame(frame); fill.style.width = "0"; if (start && !saved) tune(i); start = 0; });
+    b.addEventListener("pointerleave", () => { cancelAnimationFrame(frame); fill.style.width = "0"; start = 0; });
+    $("presets").appendChild(b);
+  }
+
+  const bands = ["31", "62", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"];
+  const gains = [-3.5, 1.5, 1.0, 0.0, -1.0, -0.5, 0.0, 1.5, -2.0, -3.0, 2.0];
+  ["PRE", ...bands].forEach((label, i) => {
+    const f = document.createElement("div");
+    f.className = `fader${i === 7 ? " sel" : ""}`;
+    f.innerHTML = `<output>${signed(gains[i])}</output><div class="track"><div class="zero"></div><div class="fcap" style="top:${50 - gains[i] / 12 * 44}%"></div></div><span class="silk">${label}</span>`;
+    f.addEventListener("click", () => { document.querySelectorAll(".fader").forEach(x => x.classList.remove("sel")); f.classList.add("sel"); popup(`${label} ${signed(gains[i])} dB`); });
+    $("eq-bank").appendChild(f);
+  });
+  [["NOISE", "fans, keys", true], ["GATE", "silence gaps", true], ["COMP", "even levels", false], ["CRY", "voice presence", false], ["MONITOR", "hear yourself", false]].forEach(([n, note, on]) => {
+    const m = document.createElement("div");
+    m.className = `module${on ? " on" : ""}`;
+    m.innerHTML = `<span class="led"></span><b>${n}</b><div class="lever${on ? " on" : ""}"></div><small>${note}</small>`;
+    m.querySelector(".lever").addEventListener("click", e => { m.classList.toggle("on"); e.currentTarget.classList.toggle("on"); });
+    $("modules").appendChild(m);
+  });
+  $("onair").addEventListener("click", e => e.currentTarget.classList.toggle("off"));
+
+  const openDeck = which => {
+    state.open = state.open === which ? null : which;
+    for (const d of ["eq", "mic"]) {
+      $(`deck-${d}`).classList.toggle("open", state.open === d);
+      $(`drawer-${d}`).classList.toggle("show", state.open === d);
+      $(`eject-${d}`).classList.toggle("on", state.open === d);
+    }
+    $("deck-mic").classList.toggle("running", state.source === "MIC");
+    if (state.open === "mic" && state.source !== "MIC") { state.source = "MIC"; tune(0); }
+    setTimeout(fit, 600);
+  };
+  $("eject-eq").addEventListener("click", () => openDeck("eq"));
+  $("eject-mic").addEventListener("click", () => openDeck("mic"));
+
+  let t = 0;
+  const animate = () => {
+    t += .05;
+    const base = .45 + .3 * Math.sin(t * 1.7) * Math.sin(t * .6) + .1 * Math.sin(t * 7);
+    $("needle").style.transform = `rotate(${-50 + base * 95}deg)`;
+    const left = Math.min(1, Math.pow(10, -Math.max(0, state.balance) * 1.2 / 20));
+    const right = Math.min(1, Math.pow(10, Math.min(0, state.balance) * 1.2 / 20));
+    $("woofer-l").style.setProperty("--level", (Math.max(0, base) * left).toFixed(2));
+    $("woofer-r").style.setProperty("--level", (Math.max(0, base) * right).toFixed(2));
+    spectrum.forEach((bar, i) => {
+      const band = i / spectrum.length;
+      const tilt = band < .3 ? state.eq.bass : band < .65 ? state.eq.vocals : state.eq.treble;
+      bar.style.height = `${Math.max(8, Math.min(100, (.3 + .45 * Math.abs(Math.sin(t * (1.1 + band * 2.4) + i * .8))) * Math.pow(10, tilt / 30) * 100))}%`;
+    });
+    requestAnimationFrame(animate);
+  };
+
+  const fit = () => {
+    const stage = $("stage");
+    const h = stage.offsetHeight;
+    const scale = Math.min(1, (innerWidth - 16) / 1336, (innerHeight - 16) / (h + 16));
+    stage.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  };
+  addEventListener("resize", fit);
+
+  const params = new URLSearchParams(location.search);
+  if (params.get("source") === "MIC") state.source = "MIC";
+  state.eq = { ...current().eq };
+  if (params.has("balance")) state.balance = Number(params.get("balance"));
+  render();
+  animate();
+  fit();
+  if (params.get("open")) openDeck(params.get("open"));
+</script>
+</body>
+</html>

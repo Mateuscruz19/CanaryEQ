@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>CanaryEQ Stack v0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --station: #ff7fb6;
+    --halo: color-mix(in srgb, var(--station) 55%, transparent);
+    --body-top: #1c1f24;
+    --body-bottom: #121417;
+    --recess: #08090b;
+    --lcd-ground: #050608;
+    --silk: #9aa3af;
+    --silk-dim: #6b7380;
+    --legend-off: #c4cbd4;
+    --chrome: linear-gradient(180deg, #f4f6f8 0%, #c9ced6 22%, #8a929d 50%, #6a717c 53%, #c9ced6 82%, #e9ecef 100%);
+    --onair: #ff4a3d;
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+    --raise: 0 2px 0 #050607, 0 3px 6px rgba(0,0,0,.6);
+    --sink: inset 0 2px 4px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.05);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body { background: radial-gradient(ellipse at 50% 30%, #33373e, #121315 70%); font-family: "Barlow Condensed", sans-serif; color: var(--legend-off); overflow: hidden; user-select: none; }
+  .stage { position: absolute; left: 50%; top: 0; width: 1264px; transform-origin: top center; transform: translateX(-50%); padding-top: 16px; }
+
+  .modes { display: flex; justify-content: center; gap: var(--s2); margin-bottom: var(--s3); }
+  .modes button { border: none; border-radius: 4px; padding: 6px 16px; font: 600 13px "Barlow Condensed", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--legend-off); background: linear-gradient(180deg, #2b2f36, #14171b); box-shadow: inset 0 1px 0 rgba(255,255,255,.16), var(--raise); cursor: pointer; }
+  .modes button.on { color: #fff; background: linear-gradient(180deg, #3b4350, #1d222a); box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 1px #6b7380; }
+
+  .rack { position: relative; padding: 0 var(--s5) var(--s5); border-radius: 12px; background: linear-gradient(180deg, #24272c, #141518); box-shadow: 0 40px 80px rgba(0,0,0,.8); }
+  .rack::before, .rack::after { content: ""; position: absolute; top: var(--s5); bottom: var(--s5); width: 10px; background: repeating-linear-gradient(180deg, #3a3e45 0 2px, #1a1c20 2px 22px); border-radius: 2px; }
+  .rack::before { left: 6px; }
+  .rack::after { right: 6px; }
+  iframe { display: block; width: 100%; height: 384px; border: 0; background: transparent; }
+
+  .unit { margin-top: var(--s3); padding: var(--s1); border-radius: 12px; background: var(--chrome); box-shadow: 0 0 0 1px #000, 0 4px 10px rgba(0,0,0,.8); overflow: hidden; max-height: 0; opacity: 0; transition: max-height .6s cubic-bezier(.2,.8,.2,1), opacity .3s, margin .6s; }
+  .unit.show { max-height: 640px; opacity: 1; }
+  .unit:not(.show) { margin-top: 0; padding: 0; }
+  .plate { position: relative; border-radius: 8px; padding: var(--s4) var(--s5); background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,0) 30%), repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 1px, transparent 1px 4px), linear-gradient(180deg, var(--body-top), var(--body-bottom)); box-shadow: inset 0 1px 0 rgba(255,255,255,.22); }
+  .plate-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s3); }
+  .plate-head b { font-weight: 700; font-size: 12px; letter-spacing: .24em; color: #d5dbe3; }
+  .silk { font-weight: 600; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--silk); }
+  .silk.dim { color: var(--silk-dim); }
+  .button { border: none; border-radius: 4px; background: linear-gradient(180deg, #2b2f36 0%, #181b20 60%, #111317 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.16), var(--raise); color: var(--legend-off); font: 600 12px "Barlow Condensed", sans-serif; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
+  .button.on { color: var(--station); text-shadow: 0 0 6px var(--halo); transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+  .lcd { border-radius: 2px; padding: var(--s2) var(--s3); background: radial-gradient(circle, rgba(0,0,0,.5) 0 .8px, transparent 1.2px) 0 0 / 3px 3px, linear-gradient(180deg, color-mix(in srgb, var(--station) 8%, var(--lcd-ground)), var(--lcd-ground) 70%); box-shadow: inset 0 3px 10px #000, 0 0 0 4px #9aa1ab; color: var(--station); font-family: "DotGothic16", monospace; text-shadow: 0 0 6px var(--halo); }
+
+  .eq { display: grid; grid-template-columns: 1fr 260px; gap: var(--s6); }
+  .bank { display: grid; grid-template-columns: 56px repeat(10, 1fr); gap: var(--s2); align-items: end; }
+  .fader { display: grid; justify-items: center; gap: var(--s2); }
+  .leds { display: flex; flex-direction: column-reverse; gap: 2px; width: 18px; height: 54px; }
+  .leds i { flex: 1; border-radius: 1px; background: color-mix(in srgb, var(--station) 10%, #111); }
+  .leds i.on { background: var(--station); box-shadow: 0 0 4px var(--halo); }
+  .track { position: relative; width: 36px; height: 150px; cursor: ns-resize; }
+  .track::before { content: ""; position: absolute; left: 50%; top: 4px; bottom: 4px; width: 6px; margin-left: -3px; border-radius: 3px; background: var(--recess); box-shadow: var(--sink); }
+  .track .ticks { position: absolute; inset: 4px 0; background: repeating-linear-gradient(180deg, #4a515b 0 1px, transparent 1px 14px); -webkit-mask: linear-gradient(90deg, #000 0 8px, transparent 8px 28px, #000 28px); mask: linear-gradient(90deg, #000 0 8px, transparent 8px 28px, #000 28px); }
+  .track .zero { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #7d8592; }
+  .cap { position: absolute; left: 50%; width: 34px; height: 18px; margin: -9px 0 0 -17px; border-radius: 3px; background: linear-gradient(180deg, #f2f4f7, #aab2bd 45%, #6e7682 50%, #c7cdd5); box-shadow: 0 3px 5px rgba(0,0,0,.7); }
+  .cap::after { content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 2px; margin-top: -1px; background: #1b1e23; }
+  .fader.pre .cap::after { background: var(--station); box-shadow: 0 0 4px var(--station); }
+  .fader.selected .cap::after { background: var(--station); box-shadow: 0 0 4px var(--station); }
+  .fader output { font: 11px "DotGothic16", monospace; color: var(--legend-off); }
+  .fader.selected .freq { color: var(--station); }
+  .inspector { display: grid; grid-template-rows: auto auto 1fr; gap: var(--s3); }
+  .inspector .lcd { display: grid; gap: 2px; font-size: 13px; letter-spacing: .08em; }
+  .inspector .lcd big { font-size: 26px; letter-spacing: .06em; }
+  .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2); }
+  .row3 .button { height: 40px; }
+
+  .mic { display: grid; grid-template-columns: 220px 1fr 220px; gap: var(--s6); align-items: stretch; }
+  .onair { display: grid; place-items: center; gap: var(--s3); }
+  .lamp { width: 180px; padding: var(--s3) 0; border-radius: 6px; text-align: center; font: 700 30px "Barlow Condensed", sans-serif; letter-spacing: .3em; color: #fff3ef; background: radial-gradient(ellipse at 50% 30%, #ff8a7d, var(--onair) 45%, #9a1b12); box-shadow: 0 0 30px rgba(255,74,61,.6), inset 0 2px 0 rgba(255,255,255,.4), 0 0 0 4px #9aa1ab; text-shadow: 0 0 10px rgba(255,255,255,.7); cursor: pointer; }
+  .lamp.off { background: radial-gradient(ellipse at 50% 30%, #4a2622, #2a1210); color: #6d3a33; box-shadow: inset 0 2px 0 rgba(255,255,255,.08), 0 0 0 4px #9aa1ab; text-shadow: none; }
+  .vu { position: relative; height: 150px; border-radius: 6px; overflow: hidden; background: radial-gradient(ellipse at 50% 120%, #fff6d8, #f0dfa8 70%, #d8c487); box-shadow: inset 0 3px 8px rgba(0,0,0,.5), 0 0 0 4px #9aa1ab; }
+  .vu svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .vu .needle { transform-origin: 50% 100%; transition: transform .12s; }
+  .modules { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--s3); }
+  .module { display: grid; justify-items: center; gap: var(--s2); padding: var(--s3) var(--s2); border-radius: 4px; background: rgba(0,0,0,.22); box-shadow: var(--sink); }
+  .module .name { font-size: 12px; letter-spacing: .12em; color: #dfe5ec; text-transform: uppercase; font-weight: 700; }
+  .module small { font-size: 10px; color: var(--silk-dim); letter-spacing: .06em; text-align: center; line-height: 1.2; min-height: 24px; }
+  .toggle { position: relative; width: 28px; height: 44px; border-radius: 4px; background: var(--recess); box-shadow: var(--sink); cursor: pointer; }
+  .toggle::before { content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 24px; margin: -22px 0 0 -5px; border-radius: 5px; background: linear-gradient(90deg, #8d96a2, #f4f6f8 45%, #9aa2ad); box-shadow: 0 2px 3px rgba(0,0,0,.7); transition: transform .12s; }
+  .toggle.on::before { transform: translateY(0); }
+  .toggle:not(.on)::before { transform: translateY(20px); }
+  .lamp-dot { width: 8px; height: 8px; border-radius: 50%; background: #2a2d32; }
+  .module.on .lamp-dot { background: var(--onair); box-shadow: 0 0 6px var(--onair); }
+  .mini { width: 40px; height: 40px; border-radius: 50%; background: repeating-conic-gradient(#30353d 0 5deg, #16181c 5deg 10deg); box-shadow: 0 3px 6px rgba(0,0,0,.75), inset 0 0 0 1px #464c55; position: relative; }
+  .mini::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #444b55, #121418); }
+  .mini i { position: absolute; left: 50%; top: 5px; width: 3px; height: 11px; margin-left: -1.5px; border-radius: 2px; background: #e6eaef; transform-origin: 1.5px 15px; }
+  .gain { display: grid; gap: var(--s3); align-content: center; }
+  .gain .big { width: 88px; height: 88px; justify-self: center; }
+  .gain .big i { top: 8px; height: 18px; transform-origin: 1.5px 36px; background: var(--onair); box-shadow: 0 0 5px var(--onair); }
+  .gain .lcd { text-align: center; font-size: 22px; letter-spacing: .08em; --station: #ff8a3d; }
+  .gain .button { height: 36px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="modes">
+    <button id="m-simple" class="on">Headphones · simple</button>
+    <button id="m-advanced">Headphones · advanced</button>
+    <button id="m-mic">Microphone</button>
+  </div>
+  <div class="rack">
+    <iframe id="head" src="head-unit-v3.html"></iframe>
+
+    <div class="unit" id="eq-unit">
+      <div class="plate">
+        <div class="plate-head"><b>CANARY · GE-10 GRAPHIC EQUALIZER</b><span class="silk dim">10 bands · ±12 dB · click a band to inspect</span></div>
+        <div class="eq">
+          <div class="bank" id="bank"></div>
+          <div class="inspector">
+            <div class="lcd" id="inspector"></div>
+            <div class="row3"><button class="button">Peak</button><button class="button">Q −</button><button class="button">Q +</button></div>
+            <div class="row3"><button class="button on">Limit</button><button class="button">Comp</button><button class="button">Cry</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="unit" id="mic-unit">
+      <div class="plate">
+        <div class="plate-head"><b>CANARY · BR-1 BROADCAST DESK</b><span class="silk dim">your voice goes to discord, obs… through "microfone (canaryeq)"</span></div>
+        <div class="mic">
+          <div class="onair">
+            <div class="lamp" id="lamp">ON AIR</div>
+            <span class="silk">click to mute · ctrl+alt+m</span>
+          </div>
+          <div style="display:grid; grid-template-rows: auto 1fr; gap: 12px;">
+            <div class="vu"><svg viewBox="0 0 400 150" preserveAspectRatio="none">
+              <path d="M40 140 A170 170 0 0 1 360 140" fill="none" stroke="#3a2f1c" stroke-width="2"/>
+              <path d="M290 62 A170 170 0 0 1 360 140" fill="none" stroke="#c0261a" stroke-width="6"/>
+              <text x="40" y="128" font-size="13" fill="#3a2f1c" font-family="Barlow Condensed">-20</text>
+              <text x="120" y="60" font-size="13" fill="#3a2f1c" font-family="Barlow Condensed">-10</text>
+              <text x="196" y="38" font-size="13" fill="#3a2f1c" font-family="Barlow Condensed">-5</text>
+              <text x="285" y="52" font-size="13" fill="#c0261a" font-family="Barlow Condensed">0</text>
+              <text x="345" y="120" font-size="13" fill="#c0261a" font-family="Barlow Condensed">+3</text>
+              <text x="186" y="120" font-size="16" fill="#3a2f1c" font-family="Barlow Condensed" letter-spacing="3">VU</text>
+              <line class="needle" id="needle" x1="200" y1="150" x2="200" y2="22" stroke="#111" stroke-width="2.5"/>
+            </svg></div>
+            <div class="modules" id="modules"></div>
+          </div>
+          <div class="gain">
+            <span class="silk" style="text-align:center">input gain</span>
+            <div class="mini big"><i id="gain-mark"></i></div>
+            <div class="lcd">+12 dB</div>
+            <button class="button">Test my mic · 5 s</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const bands = ["31", "62", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"];
+  const gains = [-3.5, 1.5, 1.0, 0.0, -1.0, -0.5, 0.0, 1.5, -2.0, -3.0, 2.0];
+  let selected = 7;
+  const bank = document.getElementById("bank");
+  const labels = ["PRE", ...bands];
+  labels.forEach((label, i) => {
+    const fader = document.createElement("div");
+    fader.className = `fader${i === 0 ? " pre" : ""}${i === selected ? " selected" : ""}`;
+    fader.innerHTML = `<output>${gains[i] > 0 ? "+" : ""}${gains[i].toFixed(1)}</output><div class="leds">${"<i></i>".repeat(10)}</div><div class="track"><div class="ticks"></div><div class="zero"></div><div class="cap" style="top:${50 - gains[i] / 12 * 46}%"></div></div><span class="silk freq">${label}</span>`;
+    fader.addEventListener("click", () => {
+      if (i === 0) return;
+      selected = i;
+      bank.querySelectorAll(".fader").forEach((f, j) => f.classList.toggle("selected", j === i));
+      renderInspector();
+    });
+    bank.appendChild(fader);
+  });
+  const renderInspector = () => {
+    document.getElementById("inspector").innerHTML = `<span>BAND ${selected} · ${bands[selected - 1]}HZ</span><big>${gains[selected] > 0 ? "+" : ""}${gains[selected].toFixed(1)} dB</big><span>PEAK · Q 1.41</span>`;
+  };
+  renderInspector();
+
+  const modules = [
+    ["Noise", "fans, keys, traffic", true, 0.7],
+    ["Gate", "silence between words", true, 0.5],
+    ["Comp", "evens loud & quiet", false, 0.4],
+    ["Cry", "voice presence", false, 0.55],
+    ["Monitor", "hear yourself", false, 0.3],
+  ];
+  const modulesRoot = document.getElementById("modules");
+  modules.forEach(([name, note, on, amount]) => {
+    const element = document.createElement("div");
+    element.className = `module${on ? " on" : ""}`;
+    element.innerHTML = `<span class="lamp-dot"></span><span class="name">${name}</span><div class="toggle${on ? " on" : ""}"></div><div class="mini"><i style="transform:rotate(${-135 + amount * 270}deg)"></i></div><small>${note}</small>`;
+    element.querySelector(".toggle").addEventListener("click", () => {
+      element.classList.toggle("on");
+      element.querySelector(".toggle").classList.toggle("on");
+    });
+    modulesRoot.appendChild(element);
+  });
+  document.getElementById("gain-mark").style.transform = "rotate(60deg)";
+  document.getElementById("lamp").addEventListener("click", e => e.currentTarget.classList.toggle("off"));
+
+  let t = 0;
+  const animate = () => {
+    t += 0.06;
+    const level = 0.45 + 0.3 * Math.sin(t * 1.7) * Math.sin(t * 0.6) + 0.1 * Math.sin(t * 7);
+    document.getElementById("needle").style.transform = `rotate(${-55 + level * 95}deg)`;
+    bank.querySelectorAll(".fader").forEach((fader, i) => {
+      const lit = Math.max(1, Math.round((0.35 + 0.4 * Math.abs(Math.sin(t * (0.9 + i * 0.2) + i))) * Math.pow(10, gains[i] / 30) * 10));
+      fader.querySelectorAll(".leds i").forEach((led, j) => led.classList.toggle("on", j < lit));
+    });
+    requestAnimationFrame(animate);
+  };
+  animate();
+
+  const head = document.getElementById("head");
+  const setMode = mode => {
+    for (const id of ["m-simple", "m-advanced", "m-mic"]) document.getElementById(id).classList.toggle("on", id === `m-${mode}`);
+    document.getElementById("eq-unit").classList.toggle("show", mode === "advanced");
+    document.getElementById("mic-unit").classList.toggle("show", mode === "mic");
+    const wanted = mode === "mic" ? "head-unit-v3.html?source=MIC" : "head-unit-v3.html";
+    if (!head.src.endsWith(wanted)) head.src = wanted;
+    const color = mode === "mic" ? "#ffcc2e" : "#ff7fb6";
+    document.documentElement.style.setProperty("--station", color);
+    fit();
+  };
+  document.getElementById("m-simple").addEventListener("click", () => setMode("simple"));
+  document.getElementById("m-advanced").addEventListener("click", () => setMode("advanced"));
+  document.getElementById("m-mic").addEventListener("click", () => setMode("mic"));
+
+  const fit = () => {
+    const stage = document.getElementById("stage");
+    const height = 1000;
+    const scale = Math.min(1, (innerWidth - 16) / 1264, innerHeight / height);
+    stage.style.transform = `translateX(-50%) scale(${scale})`;
+  };
+  addEventListener("resize", fit);
+  const mode = new URLSearchParams(location.search).get("mode");
+  setMode(mode ?? "simple");
+</script>
+</body>
+</html>
