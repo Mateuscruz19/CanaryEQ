@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <array>
 #include <cstddef>
@@ -18,7 +18,7 @@ enum class Band : std::size_t {
 class ThreeBandEq {
 public:
     static constexpr std::size_t kBandCount = 3;
-    static constexpr double kBassFrequency = 100.0;
+    static constexpr double kBassFrequency = 200.0;
     static constexpr double kMidFrequency = 1000.0;
     static constexpr double kMidQ = 0.7;
     static constexpr double kTrebleFrequency = 8000.0;
