@@ -2,6 +2,7 @@ add_executable(canary-tests
     main.cpp
     gain_test.cpp
     balance_test.cpp
+    eq_test.cpp
 )
 
 target_link_libraries(canary-tests PRIVATE canary-dsp)

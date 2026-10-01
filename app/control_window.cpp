@@ -1,10 +1,11 @@
-#include "control_window.h"
+﻿#include "control_window.h"
 
 #include <webview/webview.h>
 
 #include <cstdlib>
 #include <format>
 #include <string>
+#include <utility>
 
 namespace canary {
 
@@ -35,7 +36,8 @@ constexpr const char* kHtml = R"html(<!doctype html>
     align-items: center;
     user-select: none;
   }
-  main { width: 100%; padding: 0 32px; display: grid; gap: 34px; }
+  main { width: 100%; padding: 0 32px; display: grid; gap: 30px; }
+  .group { display: grid; gap: 22px; padding-top: 26px; border-top: 1px solid var(--track); }
   header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
   h1 { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
   output { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
@@ -71,6 +73,11 @@ constexpr const char* kHtml = R"html(<!doctype html>
 <main>
   <section id="gain"></section>
   <section id="balance"></section>
+  <div class="group">
+    <section id="bass"></section>
+    <section id="mid"></section>
+    <section id="treble"></section>
+  </div>
   <footer>Double-click a slider to reset it</footer>
 </main>
 <script>
@@ -135,6 +142,17 @@ constexpr const char* kHtml = R"html(<!doctype html>
     label: v => v === 0 ? "Center" : `${v < 0 ? "L" : "R"} ${Math.abs(v).toFixed(1)}<small>dB</small>`,
     onChange: v => window.setBalance(v),
   });
+
+  [["bass", "Bass"], ["mid", "Mid"], ["treble", "Treble"]].forEach(([id, title], band) => makeSlider({
+    id,
+    title,
+    min: -12, max: 12, step: 0.5,
+    initial: 0,
+    origin: 0,
+    ticks: [[-12, "-12"], [-6, "-6"], [0, "0"], [6, "+6"], [12, "+12"]],
+    label: v => `${signed(v)}<small>dB</small>`,
+    onChange: v => window.setEq(band, v),
+  }));
 </script>
 </body>
 </html>
@@ -145,19 +163,32 @@ float parseFirstNumber(const std::string& request)
     return std::strtof(request.c_str() + 1, nullptr);
 }
 
+std::pair<int, float> parseIndexAndNumber(const std::string& request)
+{
+    char* end = nullptr;
+    long index = std::strtol(request.c_str() + 1, &end, 10);
+    float value = std::strtof(end + 1, nullptr);
+    return {static_cast<int>(index), value};
+}
+
 }
 
 void runControlWindow(const ControlWindowOptions& options)
 {
     webview::webview window(false, nullptr);
     window.set_title("CanaryEQ");
-    window.set_size(440, 340, WEBVIEW_HINT_FIXED);
+    window.set_size(440, 640, WEBVIEW_HINT_FIXED);
     window.bind("setGain", [&options](const std::string& request) -> std::string {
         options.onGainChanged(parseFirstNumber(request));
         return "null";
     });
     window.bind("setBalance", [&options](const std::string& request) -> std::string {
         options.onBalanceChanged(parseFirstNumber(request));
+        return "null";
+    });
+    window.bind("setEq", [&options](const std::string& request) -> std::string {
+        auto [band, decibels] = parseIndexAndNumber(request);
+        options.onEqChanged(band, decibels);
         return "null";
     });
     window.init(std::format("window.initialGain = {};", options.initialGainDecibels));

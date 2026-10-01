@@ -8,6 +8,9 @@
 #include <mmdeviceapi.h>
 #include <wrl/client.h>
 
+#include <xmmintrin.h>
+#include <pmmintrin.h>
+
 #include <cstdio>
 
 namespace canary {
@@ -199,6 +202,8 @@ void AudioOutput::run(std::stop_token stop, std::uint32_t sampleRate, std::uint3
     ready.set_value({});
 
     ProAudioScope proAudio;
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
     std::stop_callback wake(stop, [&event] { SetEvent(event.handle); });
 
     while (!stop.stop_requested()) {

@@ -33,7 +33,7 @@ int main(int argc, char** argv)
     std::vector<float> samples(data, data + frames * channels);
     drwav_free(data, nullptr);
 
-    canary::LoopingPlayer player(std::move(samples), gainDecibels);
+    canary::LoopingPlayer player(std::move(samples), sampleRate, gainDecibels);
 
     canary::AudioOutput output;
     if (!output.start(sampleRate, channels, player)) {
@@ -48,6 +48,12 @@ int main(int argc, char** argv)
             .initialGainDecibels = gainDecibels,
             .onGainChanged = [&player](float decibels) { player.setGainDecibels(decibels); },
             .onBalanceChanged = [&player](float decibels) { player.setBalanceDecibels(decibels); },
+            .onEqChanged =
+                [&player](int band, float decibels) {
+                    if (band >= 0 && band < static_cast<int>(canary::ThreeBandEq::kBandCount)) {
+                        player.setEqDecibels(static_cast<canary::Band>(band), decibels);
+                    }
+                },
         });
     }
     catch (const std::exception& e) {
